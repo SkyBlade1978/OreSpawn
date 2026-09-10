@@ -960,7 +960,7 @@ tasks.register('verifyReleaseConfiguration') {
     description = 'Validates the target-qualified release, API, schemas, reports, and publishing identity.'
 
     doLast {
-        if (project.mod_version != '4.0.16.110021'
+        if (project.mod_version != '4.1.0.110021'
                 || project.mod_group != expectedMavenGroup) {
             throw new GradleException("Unexpected OreSpawn release version: ${project.mod_version}")
         }
@@ -988,8 +988,8 @@ tasks.register('verifyReleaseConfiguration') {
                 'src/main/java/zone/moddev/mc/orespawn/worldgen/LegacyOs3ProfileMigration.java',
                 'README.md', 'CHANGELOG.txt'
         ].each { path ->
-            if (!file(path).getText('UTF-8').contains('4.0.16.110021')) {
-                throw new GradleException("Authoritative release location does not contain 4.0.16.110021: ${path}")
+            if (!file(path).getText('UTF-8').contains('4.1.0.110021')) {
+                throw new GradleException("Authoritative release location does not contain 4.1.0.110021: ${path}")
             }
         }
         if (!file('docs/API.md').getText('UTF-8').contains('orespawn@[4.0.6,5.0.0)')) {
@@ -1071,6 +1071,8 @@ tasks.register('verifyReleaseArtifacts') {
                     'mcmod.info',
                     'META-INF/accesstransformer.cfg',
                     'zone/moddev/mc/orespawn/api/OreSpawnApi.class',
+                    'zone/moddev/mc/orespawn/api/OreGenerationContext.class',
+                    'zone/moddev/mc/orespawn/api/client/WorldSettingsExtensionRegistry.class',
                     'META-INF/orespawn/docs/VERSIONS.md',
                     'META-INF/orespawn/docs/schemas/orespawn-provider.schema.json',
                     'META-INF/orespawn/docs/schemas/orespawn-global.schema.json',

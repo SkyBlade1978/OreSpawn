@@ -13,6 +13,8 @@
 | Add or place biomes without a framework dependency | Provider schema 4 biome palette |
 | Replace surfaces, aquifers, snow, or ice | Provider schema 4 dimension materials |
 | Inspect active geology at runtime | `GeologyProfileView` and `GeologySampler` |
+| Build a deterministic region-scale ore pattern | `OreGenerationContext` |
+| Add an add-on settings screen | Client-only `WorldSettingsExtensionRegistry` |
 
 Strata are optional. If no enabled terrain dimension has eligible rocks,
 OreSpawn skips terrain replacement and all formation/geome settings are inert.
@@ -119,6 +121,36 @@ needs different settings; the explicit rule overrides the selector there.
 Ore dimension builders support the same exact-ID and biome-dictionary include
 and exclude filters as provider JSON and fluid-deposit builders.
 
+## Region-scale custom patterns
+
+OreSpawn 4.1 supplies compiled patterns with `OreGenerationContext`, a subtype
+of the original placement context. Its world seed, dimension ID and current
+chunk coordinates let an add-on derive a stable region/deposit identity that
+does not depend on chunk generation order. `geologySampler()` provides the
+active OreSpawn geology where one is configured.
+
+Render only the part of a deterministic body that intersects `chunkX()` and
+`chunkZ()`. All reads and writes must still pass through `inside(...)`,
+`isFluid(...)` and `tryPlace(...)`; Forge 1.10 deliberately restricts those
+operations to the current chunk. Perform definition parsing and expensive
+setup in the registered pattern compiler, not its placement callback.
+
+## Add-on world settings
+
+Register optional client configuration screens during client initialization:
+
+```java
+WorldSettingsExtensionRegistry.register(
+    new ResourceLocation("examplemod", "deposit_settings"),
+    "button.examplemod.deposit_settings",
+    parent -> new ExampleDepositSettingsScreen(parent));
+```
+
+The registry is client-only. OreSpawn renders the translated button, controls
+its placement, and supplies the current OreSpawn screen as the parent. The
+extension owns its own screen and translations and must return to that parent
+from Done. Duplicate identifiers are rejected deterministically.
+
 ## Pack Override Quick Start
 
 Copy `examples/examplemod-orespawn.json` to:
@@ -174,7 +206,9 @@ See `CONFIGURATION.md` and the JSON Schemas for every field and numeric range.
 Provider files and API definitions freeze before generation. OreSpawn resolves
 registry IDs, tags, dimensions, geomes, aliases, and block states while baking.
 The generation loop must not contain provider callbacks, config reads, registry
-lookups, strings, logging, reflection, or avoidable allocation.
+lookups, strings, logging, reflection, or avoidable allocation. Compiled custom
+patterns are the intentional extension point; they receive only baked settings,
+the allocation-free placement context and cached generation identity/sampler.
 
 Biome filters retain their exact registry IDs. Minecraft 1.10.2 uses a static
 Forge-backed biome registry, so generation carries those stable IDs alongside

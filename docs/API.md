@@ -152,7 +152,29 @@ OreSpawnApi.createSampler(server.overworld()).ifPresent(sampler -> {
 `sampleColumn` performs one biome/geome classification and reuses it for every
 Y query. Sampling is read-only and is intended for gameplay decisions,
 diagnostics, and compatible generation outside OreSpawn's block loops.
-Callbacks inside OreSpawn generation loops are intentionally unsupported.
+
+OreSpawn 4.1 adds `OreGenerationContext` as a binary-compatible subtype of the
+original `OrePlacementContext`. Every context supplied by OreSpawn implements
+the extended type. A custom compiled pattern can obtain stable region-scale
+identity without retaining a world object:
+
+```java
+if (!(context instanceof OreGenerationContext)) return false;
+OreGenerationContext generation = (OreGenerationContext) context;
+long seed = generation.worldSeed();
+ResourceLocation dimension = generation.dimension();
+int chunkX = generation.chunkX();
+int chunkZ = generation.chunkZ();
+Optional<GeologySampler> geology = generation.geologySampler();
+```
+
+The world seed, dimension and chunk coordinates are identical for ordinary
+generation and supported retrogen. `geologySampler()` is empty when that
+dimension has no active OreSpawn geology configuration. It otherwise returns
+the already-prepared, allocation-light sampler for the active world. Large
+patterns must independently render only the slice intersecting the current
+chunk and continue to use `inside(...)` and `tryPlace(...)` for safe writes.
+Do not retain the sampler or placement context beyond the current call.
 
 Forge 12 custom-pattern mods attach a generic
 `RegistryEvent.Register<OrePatternType>` listener to their mod event bus and
@@ -162,6 +184,26 @@ register named values into `OreSpawnPatternRegistry.REGISTRY_NAME`. An
 `pattern(patternId, settingsJson)`. OreSpawn decodes and compiles once while
 baking the profile; only the compiled placement function runs during
 generation.
+
+## Client world-settings extensions
+
+An add-on may contribute a translated action to OreSpawn's world-settings
+screen without depending on OreSpawn implementation classes. Register from
+client initialization only:
+
+```java
+WorldSettingsExtensionRegistry.register(
+    new ResourceLocation("examplemod", "deposit_settings"),
+    "button.examplemod.deposit_settings",
+    parent -> new ExampleDepositSettingsScreen(parent));
+```
+
+OreSpawn owns layout and navigation and passes its current screen as the
+factory parent, so the add-on's Done action can return safely. Entries appear
+in deterministic registration order. Duplicate IDs, blank translation keys
+and null factories are rejected. The translation belongs in the add-on's own
+language resources. These types are client-only and must not be loaded from a
+dedicated-server initialization path.
 
 `OreSpawnOreIntegration` remains as a deprecated facade for early ore-provider
 integrations. New code should use `OreSpawnApi`.

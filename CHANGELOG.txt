@@ -1,3 +1,15 @@
+Version 4.1.0.110021
+
+* Add an extended, binary-compatible ore generation context exposing stable
+  world seed, dimension and current-chunk identity to compiled pattern add-ons.
+* Expose the active geology sampler to patterns when the generated dimension
+  has OreSpawn geology, including identical identity during supported retrogen.
+* Add a deterministic client-only registry for translated add-on actions in
+  OreSpawn's world-settings screen, with parent-screen handoff and duplicate-ID
+  rejection.
+* Preserve API major 1, schemas 4/6/5, existing pattern binaries, profiles,
+  migration behaviour and generated chunks.
+
 Version 4.0.16.110021
 
 * Adopt the shared 4.0.16 release identity. Forge 1.10 has neither
