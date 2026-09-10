@@ -67,6 +67,18 @@ class OreSpawnOreGenerationTest {
 	}
 
 	@Test
+	void normalGenerationAndRetrogenShareStableExtendedIdentityInputs() throws Exception {
+		String source = new String(Files.readAllBytes(Paths.get("src", "main", "java", "zone",
+				"moddev", "mc", "orespawn", "worldgen", "OreSpawnOreGeneration.java")),
+				StandardCharsets.UTF_8);
+		assertTrue(source.contains("generateChunk(level, world, chunk"));
+		assertTrue(source.contains("generateChunk(level, null, chunk"));
+		assertTrue(source.contains("dimension, worldSeed,\n\t\t\t\tgeologySampler"));
+		assertTrue(source.contains("this.chunkX = chunkPos.chunkXPos"));
+		assertTrue(source.contains("this.chunkZ = chunkPos.chunkZPos"));
+	}
+
+	@Test
 	void fixedQuantityDoesNotConsumeRandomState() {
 		CountingRandom random = new CountingRandom(0);
 		assertEquals(8, OreSpawnOreGeneration.sampleQuantity(random, 8, 8));

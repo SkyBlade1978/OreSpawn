@@ -6,7 +6,6 @@ import java.util.Optional;
 import zone.moddev.mc.orespawn.OreSpawnConfig.GeologyMode;
 import zone.moddev.mc.orespawn.worldgen.BakedGeomeConfig;
 import zone.moddev.mc.orespawn.worldgen.Geology;
-import zone.moddev.mc.orespawn.worldgen.GeomeConfig;
 import zone.moddev.mc.orespawn.worldgen.GeomeGeology;
 import zone.moddev.mc.orespawn.worldgen.RockFamily;
 import zone.moddev.mc.orespawn.worldgen.WorldGeologyProfile;
@@ -33,7 +32,7 @@ final class OreSpawnGeologySampler implements GeologySampler {
 	private OreSpawnGeologySampler(WorldServer level) {
 		this.level = level;
 		dimension = WorldIds.dimension(level);
-		config = GeomeConfig.baked(dimension);
+		config = OreSpawnApi.samplerConfig(level);
 		WorldGeologyProfile profile = WorldGeologyProfileManager.activeProfile();
 		mode = profile.geologyMode();
 		if (mode == GeologyMode.LEGACY) {
@@ -47,7 +46,7 @@ final class OreSpawnGeologySampler implements GeologySampler {
 	}
 
 	static GeologySampler create(WorldServer level) {
-		if (level == null || WorldGeologyProfileManager.activeServer() != level.getMinecraftServer()) {
+		if (!OreSpawnApi.isActiveLevel(level)) {
 			throw new IllegalStateException("The level is not part of OreSpawn's active server");
 		}
 		return new OreSpawnGeologySampler(level);

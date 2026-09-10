@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -18,8 +19,10 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import zone.moddev.mc.orespawn.OreSpawn;
 import zone.moddev.mc.orespawn.api.CompiledOrePattern;
+import zone.moddev.mc.orespawn.api.GeologySampler;
 import zone.moddev.mc.orespawn.api.OreDimensionSelector;
-import zone.moddev.mc.orespawn.api.OrePlacementContext;
+import zone.moddev.mc.orespawn.api.OreGenerationContext;
+import zone.moddev.mc.orespawn.api.OreSpawnApi;
 import zone.moddev.mc.orespawn.init.OreSpawnPatterns;
 
 import net.minecraft.util.math.BlockPos;
@@ -112,7 +115,8 @@ public final class OreSpawnOreGeneration {
 		setCenter(scratch.cursor, chunk);
 		Biome biome = world.getBiome(scratch.cursor);
 		ResourceLocation biomeId = WorldIds.biome(biome);
-		boolean changed = generateChunk(world, chunk, biome, biomeId, dimension,
+		WorldServer level = world instanceof WorldServer ? (WorldServer) world : null;
+		boolean changed = generateChunk(level, world, chunk, biome, biomeId, dimension,
 				world.getSeed(), random, ores, false, scratch);
 		OreRetrogenManager.markGenerated(dimension, ChunkAccessCompat.position(chunk));
 		return changed;
@@ -128,7 +132,7 @@ public final class OreSpawnOreGeneration {
 		setCenter(scratch.cursor, chunk);
 		Biome biome = level.getBiome(scratch.cursor);
 		ResourceLocation biomeId = WorldIds.biome(biome);
-		return generateChunk(null, chunk, biome, biomeId, dimension, level.getSeed(),
+		return generateChunk(level, null, chunk, biome, biomeId, dimension, level.getSeed(),
 				new Random(seed), ores, true, scratch);
 	}
 
@@ -137,13 +141,14 @@ public final class OreSpawnOreGeneration {
 		cursor.setPos(chunkPos.getXStart() + 8, 0, chunkPos.getZStart() + 8);
 	}
 
-	private static boolean generateChunk(World world, Chunk chunk, Biome biome,
+	private static boolean generateChunk(WorldServer level, World world, Chunk chunk, Biome biome,
 			ResourceLocation biomeId,
 			ResourceLocation dimension, long worldSeed, Random random, BakedOre[] ores,
 			boolean retrogenOnly, GenerationScratch scratch) {
 		ChunkPos chunkPos = ChunkAccessCompat.position(chunk);
 		int centerX = chunkPos.getXStart() + 8;
 		int centerZ = chunkPos.getZStart() + 8;
+		Optional<GeologySampler> geologySampler = scratch.geologySampler(level, dimension);
 		int geome = -1;
 		if (WorldIds.OVERWORLD.equals(dimension)) {
 			geome = classifier(worldSeed).classifyColumn(biome, biomeId, centerX, centerZ,
@@ -162,7 +167,8 @@ public final class OreSpawnOreGeneration {
 			}
 			int attempts = attemptsForFrequency(random, frequency);
 			for (int attempt = 0; attempt < attempts; attempt++) {
-				changed |= placeAttempt(world, chunk, random, ore, geome, scratch);
+				changed |= placeAttempt(world, chunk, random, ore, geome, dimension,
+						worldSeed, geologySampler, scratch);
 			}
 		}
 		if (changed) {
@@ -181,7 +187,8 @@ public final class OreSpawnOreGeneration {
 	}
 
 	private static boolean placeAttempt(World world, Chunk chunk, Random random,
-			BakedOre ore, int geome,
+			BakedOre ore, int geome, ResourceLocation dimension, long worldSeed,
+			Optional<GeologySampler> geologySampler,
 			GenerationScratch scratch) {
 		int minY = Math.max(ore.minY, 0);
 		int maxY = Math.min(ore.maxY, 256 - 1);
@@ -192,8 +199,8 @@ public final class OreSpawnOreGeneration {
 		int y = ore.heightDistribution.sample(random, minY, maxY);
 		int z = ChunkAccessCompat.position(chunk).getZStart() + random.nextInt(16);
 		int quantity = sampleQuantity(random, ore.minQuantity, ore.maxQuantity);
-		scratch.patternContext.initialize(world, chunk, random, ore, geome, x, y, z, minY, maxY,
-				quantity);
+		scratch.patternContext.initialize(world, chunk, random, ore, geome, dimension, worldSeed,
+				geologySampler, x, y, z, minY, maxY, quantity);
 		return ore.pattern.place(scratch.patternContext);
 	}
 
@@ -774,6 +781,10 @@ public final class OreSpawnOreGeneration {
 		final BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 		final PatternContext patternContext = new PatternContext(cursor);
 		private double[] geomeValues = new double[0];
+		private WorldServer samplerLevel;
+		private ResourceLocation samplerDimension;
+		private BakedGeomeConfig samplerConfig;
+		private Optional<GeologySampler> geologySampler = Optional.empty();
 
 		double[] geomeValues(int count) {
 			if (geomeValues.length != count) {
@@ -781,9 +792,22 @@ public final class OreSpawnOreGeneration {
 			}
 			return geomeValues;
 		}
+
+		Optional<GeologySampler> geologySampler(WorldServer level, ResourceLocation dimension) {
+			BakedGeomeConfig activeConfig = WorldIds.OVERWORLD.equals(dimension)
+					? GeomeConfig.baked() : GeomeConfig.baked(dimension);
+			if (level != samplerLevel || !dimension.equals(samplerDimension)
+					|| activeConfig != samplerConfig) {
+				samplerLevel = level;
+				samplerDimension = dimension;
+				samplerConfig = activeConfig;
+				geologySampler = level == null ? Optional.empty() : OreSpawnApi.createSampler(level);
+			}
+			return geologySampler;
+		}
 	}
 
-	private static final class PatternContext implements OrePlacementContext {
+	private static final class PatternContext implements OreGenerationContext {
 		private final BlockPos.MutableBlockPos cursor;
 		private final BlockPos.MutableBlockPos airCursor = new BlockPos.MutableBlockPos();
 		private World world;
@@ -791,6 +815,11 @@ public final class OreSpawnOreGeneration {
 		private Random random;
 		private BakedOre ore;
 		private int geome;
+		private ResourceLocation dimension;
+		private long worldSeed;
+		private int chunkX;
+		private int chunkZ;
+		private Optional<GeologySampler> geologySampler = Optional.empty();
 		private int originX;
 		private int originY;
 		private int originZ;
@@ -803,12 +832,20 @@ public final class OreSpawnOreGeneration {
 		}
 
 		void initialize(World world, Chunk chunk, Random random, BakedOre ore, int geome,
+				ResourceLocation dimension, long worldSeed,
+				Optional<GeologySampler> geologySampler,
 				int originX, int originY, int originZ, int minY, int maxY, int quantity) {
 			this.world = world;
 			this.chunk = chunk;
 			this.random = random;
 			this.ore = ore;
 			this.geome = geome;
+			this.dimension = dimension;
+			this.worldSeed = worldSeed;
+			ChunkPos chunkPos = ChunkAccessCompat.position(chunk);
+			this.chunkX = chunkPos.chunkXPos;
+			this.chunkZ = chunkPos.chunkZPos;
+			this.geologySampler = geologySampler;
 			this.originX = originX;
 			this.originY = originY;
 			this.originZ = originZ;
@@ -827,6 +864,11 @@ public final class OreSpawnOreGeneration {
 		@Override public int spread() { return ore.spread; }
 		@Override public int verticalSpread() { return ore.verticalSpread; }
 		@Override public int nodeSize() { return ore.nodeSize; }
+		@Override public long worldSeed() { return worldSeed; }
+		@Override public ResourceLocation dimension() { return dimension; }
+		@Override public int chunkX() { return chunkX; }
+		@Override public int chunkZ() { return chunkZ; }
+		@Override public Optional<GeologySampler> geologySampler() { return geologySampler; }
 
 		@Override
 		public boolean inside(int x, int y, int z) {
