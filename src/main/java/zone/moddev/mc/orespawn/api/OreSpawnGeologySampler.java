@@ -55,7 +55,10 @@ final class OreSpawnGeologySampler implements GeologySampler {
 	@Override
 	public GeologyColumn sampleColumn(int blockX, int blockZ, int surfaceY) {
 		BlockPos position = new BlockPos(blockX, surfaceY, blockZ);
-		Biome biome = level.getBiome(position);
+		// Query the dimension's biome provider directly. World#getBiome may obtain a
+		// chunk and therefore load or generate neighbouring chunks when a large
+		// extension pattern samples a body crossing chunk boundaries.
+		Biome biome = level.provider.getBiomeProvider().getBiome(position);
 		ResourceLocation biomeId = WorldIds.biome(biome);
 		if (biomeId == null) biomeId = new ResourceLocation("orespawn", "unregistered_biome");
 		if (mode == GeologyMode.LEGACY) {
