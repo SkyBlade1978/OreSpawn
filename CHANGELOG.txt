@@ -7,6 +7,12 @@ Version 4.1.0.110021
 * Add a deterministic client-only registry for translated add-on actions in
   OreSpawn's world-settings screen, with parent-screen handoff and duplicate-ID
   rejection.
+* Add optional per-resource background-generation scaling for controller
+  patterns, including deterministic vanilla gating and lowest-controller wins.
+* Let structural providers keep newly introduced entries out of existing world
+  profiles while retaining the historical merge behavior by default.
+* Guarantee geology column sampling does not load or generate neighbouring
+  chunks.
 * Preserve API major 1, schemas 4/6/5, existing pattern binaries, profiles,
   migration behaviour and generated chunks.
 

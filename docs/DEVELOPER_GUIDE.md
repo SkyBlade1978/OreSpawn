@@ -14,6 +14,7 @@
 | Replace surfaces, aquifers, snow, or ice | Provider schema 4 dimension materials |
 | Inspect active geology at runtime | `GeologyProfileView` and `GeologySampler` |
 | Build a deterministic region-scale ore pattern | `OreGenerationContext` |
+| Replace or blend background ore generation | `backgroundGenerationScale` |
 | Add an add-on settings screen | Client-only `WorldSettingsExtensionRegistry` |
 
 Strata are optional. If no enabled terrain dimension has eligible rocks,

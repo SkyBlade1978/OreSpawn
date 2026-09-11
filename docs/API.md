@@ -150,8 +150,9 @@ OreSpawnApi.createSampler(server.overworld()).ifPresent(sampler -> {
 ```
 
 `sampleColumn` performs one biome/geome classification and reuses it for every
-Y query. Sampling is read-only and is intended for gameplay decisions,
-diagnostics, and compatible generation outside OreSpawn's block loops.
+Y query. Sampling is read-only, does not load or generate the requested chunk,
+and is intended for gameplay decisions, diagnostics, and compatible generation
+outside OreSpawn's block loops.
 
 OreSpawn 4.1 adds `OreGenerationContext` as a binary-compatible subtype of the
 original `OrePlacementContext`. Every context supplied by OreSpawn implements
@@ -175,6 +176,20 @@ the already-prepared, allocation-light sampler for the active world. Large
 patterns must independently render only the slice intersecting the current
 chunk and continue to use `inside(...)` and `tryPlace(...)` for safe writes.
 Do not retain the sampler or placement context beyond the current call.
+
+Large-deposit add-ons may make one OreSpawn rule the controller for a resource
+in a dimension. Set `.backgroundGenerationScale(value)` on that rule to scale
+other OreSpawn-managed rules and vanilla generation for the same primary
+output. The controller rule remains unscaled, omitted values mean `1.0`, zero
+fully suppresses background generation, and the lowest value wins when several
+controllers target the same resource. Vanilla decisions use a stable hash of
+world, dimension, chunk and resource rather than mutable event order.
+
+Providers whose entries capture structural configuration can call
+`.mergeNewEntriesIntoExistingWorlds(false)`. New worlds still receive the
+complete provider, while an existing saved world profile does not silently gain
+definitions introduced after that world was created. The historical default is
+`true`.
 
 Forge 12 custom-pattern mods attach a generic
 `RegistryEvent.Register<OrePatternType>` listener to their mod event bus and
