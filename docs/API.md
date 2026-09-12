@@ -202,9 +202,18 @@ generation.
 
 ## Client world-settings extensions
 
-An add-on may contribute a translated action to OreSpawn's world-settings
-screen without depending on OreSpawn implementation classes. Register from
-client initialization only:
+An add-on may contribute one configuration screen to OreSpawn's **Mods**
+directory without depending on OreSpawn implementation classes. Prefer the
+owning-mod registration form during client initialization:
+
+```java
+WorldSettingsExtensionRegistry.registerConfigScreen(
+    "examplemod",
+    parent -> new ExampleDepositSettingsScreen(parent));
+```
+
+The original three-argument form remains binary compatible. Its resource
+namespace is treated as the owning mod ID:
 
 ```java
 WorldSettingsExtensionRegistry.register(
@@ -213,12 +222,15 @@ WorldSettingsExtensionRegistry.register(
     parent -> new ExampleDepositSettingsScreen(parent));
 ```
 
-OreSpawn owns layout and navigation and passes its current screen as the
-factory parent, so the add-on's Done action can return safely. Entries appear
-in deterministic registration order. Duplicate IDs, blank translation keys
-and null factories are rejected. The translation belongs in the add-on's own
-language resources. These types are client-only and must not be loaded from a
-dedicated-server initialization path.
+OreSpawn owns directory layout and passes the Mods directory as the factory
+parent. Add-ons should use that parent for Done; OreSpawn also redirects the
+inherited vanilla Escape action there before the player returns to the main
+geology screen. Exactly one screen may be owned by
+each mod; duplicate ownership, blank legacy translation keys and null factories
+are rejected deterministically. The legacy translation key and extension
+accessors remain available to existing binaries, although the directory now
+uses its packaged cog action. These types are client-only and must not be
+loaded from a dedicated-server initialization path.
 
 `OreSpawnOreIntegration` remains as a deprecated facade for early ore-provider
 integrations. New code should use `OreSpawnApi`.

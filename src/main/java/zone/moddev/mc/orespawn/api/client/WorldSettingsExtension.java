@@ -25,7 +25,7 @@ public final class WorldSettingsExtension {
 	public ResourceLocation id() { return id; }
 	public String buttonTranslationKey() { return buttonTranslationKey; }
 
-	/** Creates the extension screen with the current OreSpawn screen as its parent. */
+	/** Creates the extension screen with OreSpawn's Mods directory as its parent. */
 	public GuiScreen createScreen(GuiScreen parent) {
 		return screenFactory.create(Objects.requireNonNull(parent, "parent"));
 	}

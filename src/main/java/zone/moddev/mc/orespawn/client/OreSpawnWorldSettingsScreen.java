@@ -7,8 +7,6 @@ import java.util.List;
 import java.util.Objects;
 
 import zone.moddev.mc.orespawn.OreSpawnConfig.GeologyMode;
-import zone.moddev.mc.orespawn.api.client.WorldSettingsExtension;
-import zone.moddev.mc.orespawn.api.client.WorldSettingsExtensionRegistry;
 import zone.moddev.mc.orespawn.worldgen.FormationSettings.Preset;
 import zone.moddev.mc.orespawn.worldgen.WorldGeologyProfile;
 import zone.moddev.mc.orespawn.worldgen.WorldGeologyProfileManager;
@@ -71,10 +69,9 @@ public final class OreSpawnWorldSettingsScreen extends OreSpawnScreen {
 		int right = left + columnWidth + 5;
 		boolean terrain = session.hasTerrainRules();
 		boolean fluids = !session.fluidDepositIds().isEmpty();
-		List<WorldSettingsExtension> extensions = WorldSettingsExtensionRegistry.extensions();
 		int top = OreSpawnScreenLayout.mainTop(this.height);
-		int rows = (templateChoices.size() > 1 ? 1 : 0) + (terrain ? 8
-				: 5 + (fluids ? 1 : 0)) + extensions.size();
+		int rows = (templateChoices.size() > 1 ? 1 : 0) + (terrain ? 9
+				: 5 + (fluids ? 1 : 0));
 		int available = OreSpawnScreenLayout.footerY(height) - top - BUTTON_HEIGHT - 4;
 		int row = Math.min(OreSpawnScreenLayout.mainRowSpacing(this.height),
 				rows <= 1 ? 24 : Math.max(BUTTON_HEIGHT, available / (rows - 1)));
@@ -109,8 +106,11 @@ public final class OreSpawnWorldSettingsScreen extends OreSpawnScreen {
 					contentWidth, BUTTON_HEIGHT,
 					new TextComponentTranslation("button.orespawn.biomes_world_materials"),
 					button -> openBiomeWorldMaterials(), "tooltip.orespawn.main.biomes_materials"));
-			addButton(OreSpawnScreenLayout.button(this, font, left, top + (row * rowIndex++),
-					contentWidth, BUTTON_HEIGHT, new TextComponentTranslation("button.orespawn.help"),
+			addButton(OreSpawnScreenLayout.explainedButton(this, font, left, top + (row * rowIndex),
+					columnWidth, BUTTON_HEIGHT, new TextComponentTranslation("button.orespawn.mods"),
+					button -> openMods(), "tooltip.orespawn.main.mods"));
+			addButton(OreSpawnScreenLayout.button(this, font, right, top + (row * rowIndex++),
+					columnWidth, BUTTON_HEIGHT, new TextComponentTranslation("button.orespawn.help"),
 					button -> openHelp()));
 		} else {
 			geologyModeButton = OreSpawnScreenLayout.explain(this,
@@ -150,21 +150,18 @@ public final class OreSpawnWorldSettingsScreen extends OreSpawnScreen {
 					columnWidth, BUTTON_HEIGHT,
 					new TextComponentTranslation("button.orespawn.biomes_world_materials"),
 					button -> openBiomeWorldMaterials(), "tooltip.orespawn.main.biomes_materials"));
-			addButton(OreSpawnScreenLayout.explainedButton(this, font, left, top + (row * rowIndex),
-					columnWidth, BUTTON_HEIGHT, new TextComponentTranslation("button.orespawn.advanced"),
+			addButton(OreSpawnScreenLayout.explainedButton(this, font, left, top + (row * rowIndex++),
+					contentWidth, BUTTON_HEIGHT, new TextComponentTranslation("button.orespawn.advanced"),
 					button -> openAdvanced(), "tooltip.orespawn.main.advanced"));
-			addButton(OreSpawnScreenLayout.button(this, font, right, top + (row * rowIndex++),
-					columnWidth, BUTTON_HEIGHT, new TextComponentTranslation("button.orespawn.help"),
-					button -> openHelp()));
 			addButton(OreSpawnScreenLayout.explainedButton(this, font, left, top + (row * rowIndex++),
 					contentWidth, BUTTON_HEIGHT, fluidEditorLabel(), button -> openFluidDeposits(),
 					"tooltip.orespawn.main.fluid_editor"));
-		}
-		for (WorldSettingsExtension extension : extensions) {
-			addButton(OreSpawnScreenLayout.button(this, font, left, top + (row * rowIndex++),
-					contentWidth, BUTTON_HEIGHT,
-					new TextComponentTranslation(extension.buttonTranslationKey()),
-					button -> openExtension(extension)));
+			addButton(OreSpawnScreenLayout.explainedButton(this, font, left, top + (row * rowIndex),
+					columnWidth, BUTTON_HEIGHT, new TextComponentTranslation("button.orespawn.mods"),
+					button -> openMods(), "tooltip.orespawn.main.mods"));
+			addButton(OreSpawnScreenLayout.button(this, font, right, top + (row * rowIndex++),
+					columnWidth, BUTTON_HEIGHT, new TextComponentTranslation("button.orespawn.help"),
+					button -> openHelp()));
 		}
 		addButton(OreSpawnScreenLayout.button(this, font, left, this.height - 28, columnWidth, BUTTON_HEIGHT,
 				DialogTexts.GUI_DONE, button -> saveAndClose()));
@@ -331,15 +328,9 @@ public final class OreSpawnWorldSettingsScreen extends OreSpawnScreen {
 		minecraft.displayGuiScreen(new OreSpawnGuideScreen(this));
 	}
 
-	private void openExtension(WorldSettingsExtension extension) {
+	private void openMods() {
 		syncSession();
-		GuiScreen screen = extension.createScreen(this);
-		if (screen == null) {
-			validationError = new TextComponentString(
-					"World-settings extension did not create a screen: " + extension.id());
-			return;
-		}
-		minecraft.displayGuiScreen(screen);
+		minecraft.displayGuiScreen(new OreSpawnModsScreen(this));
 	}
 
 	@Override

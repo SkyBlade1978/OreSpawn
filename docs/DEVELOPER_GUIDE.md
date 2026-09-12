@@ -138,7 +138,17 @@ setup in the registered pattern compiler, not its placement callback.
 
 ## Add-on world settings
 
-Register optional client configuration screens during client initialization:
+Register one optional client configuration screen during client
+initialization. The preferred form identifies the owning mod directly:
+
+```java
+WorldSettingsExtensionRegistry.registerConfigScreen(
+    "examplemod",
+    parent -> new ExampleDepositSettingsScreen(parent));
+```
+
+The existing form remains available to already-compiled add-ons, and its
+resource namespace becomes the owner:
 
 ```java
 WorldSettingsExtensionRegistry.register(
@@ -147,10 +157,14 @@ WorldSettingsExtensionRegistry.register(
     parent -> new ExampleDepositSettingsScreen(parent));
 ```
 
-The registry is client-only. OreSpawn renders the translated button, controls
-its placement, and supplies the current OreSpawn screen as the parent. The
-extension owns its own screen and translations and must return to that parent
-from Done. Duplicate identifiers are rejected deterministically.
+The registry is client-only. OreSpawn lists the loaded mod once in its
+paginated **Mods** directory, renders a packaged cog, and supplies that
+directory as the parent. The extension owns its complete screen and should
+return to that parent from Done; OreSpawn redirects inherited vanilla Escape
+there as well. OreSpawn synchronizes its pending editor session before opening
+the directory. Only one configuration screen may be
+registered per owning mod, so two resource paths in the same namespace are a
+deterministic duplicate rather than extra main-screen rows.
 
 ## Pack Override Quick Start
 
