@@ -20,8 +20,18 @@ final class CogButton extends Button {
 		minecraft.getTextureManager().bindTexture(COG);
 		if (enabled) GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
 		else GlStateManager.color(0.45F, 0.45F, 0.45F, 0.8F);
-		drawModalRectWithCustomSizedTexture(xPosition + 3, yPosition + 2,
+		GlStateManager.pushMatrix();
+		GlStateManager.translate(xPosition + 11.0F, yPosition + 10.0F, 0.0F);
+		GlStateManager.scale(1.5F, 1.5F, 1.0F);
+		drawModalRectWithCustomSizedTexture(-8, -8,
 				0.0F, 0.0F, 16, 16, 16.0F, 16.0F);
+		if (enabled) {
+			// The source pixels deliberately retain soft edges. A second pass makes
+			// the enabled icon read clearly against the legacy button texture.
+			drawModalRectWithCustomSizedTexture(-8, -8,
+					0.0F, 0.0F, 16, 16, 16.0F, 16.0F);
+		}
+		GlStateManager.popMatrix();
 		GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
 	}
 }

@@ -32,6 +32,8 @@ class OreSpawnModsScreenContractTest {
 		String source = read(CLIENT.resolve("CogButton.java"));
 		assertTrue(source.contains("textures/gui/cog.png"));
 		assertFalse(source.contains("\\u2699"));
+		assertTrue(source.contains("GlStateManager.scale(1.5F, 1.5F, 1.0F)"));
+		assertTrue(source.contains("if (enabled)"));
 	}
 
 	@Test

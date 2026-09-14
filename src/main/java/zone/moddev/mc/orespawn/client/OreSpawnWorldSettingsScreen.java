@@ -70,7 +70,7 @@ public final class OreSpawnWorldSettingsScreen extends OreSpawnScreen {
 		boolean terrain = session.hasTerrainRules();
 		boolean fluids = !session.fluidDepositIds().isEmpty();
 		int top = OreSpawnScreenLayout.mainTop(this.height);
-		int rows = (templateChoices.size() > 1 ? 1 : 0) + (terrain ? 9
+		int rows = (templateChoices.size() > 1 ? 1 : 0) + (terrain ? 8
 				: 5 + (fluids ? 1 : 0));
 		int available = OreSpawnScreenLayout.footerY(height) - top - BUTTON_HEIGHT - 4;
 		int row = Math.min(OreSpawnScreenLayout.mainRowSpacing(this.height),
@@ -150,11 +150,11 @@ public final class OreSpawnWorldSettingsScreen extends OreSpawnScreen {
 					columnWidth, BUTTON_HEIGHT,
 					new TextComponentTranslation("button.orespawn.biomes_world_materials"),
 					button -> openBiomeWorldMaterials(), "tooltip.orespawn.main.biomes_materials"));
-			addButton(OreSpawnScreenLayout.explainedButton(this, font, left, top + (row * rowIndex++),
-					contentWidth, BUTTON_HEIGHT, new TextComponentTranslation("button.orespawn.advanced"),
+			addButton(OreSpawnScreenLayout.explainedButton(this, font, left, top + (row * rowIndex),
+					columnWidth, BUTTON_HEIGHT, new TextComponentTranslation("button.orespawn.advanced"),
 					button -> openAdvanced(), "tooltip.orespawn.main.advanced"));
-			addButton(OreSpawnScreenLayout.explainedButton(this, font, left, top + (row * rowIndex++),
-					contentWidth, BUTTON_HEIGHT, fluidEditorLabel(), button -> openFluidDeposits(),
+			addButton(OreSpawnScreenLayout.explainedButton(this, font, right, top + (row * rowIndex++),
+					columnWidth, BUTTON_HEIGHT, fluidEditorLabel(), button -> openFluidDeposits(),
 					"tooltip.orespawn.main.fluid_editor"));
 			addButton(OreSpawnScreenLayout.explainedButton(this, font, left, top + (row * rowIndex),
 					columnWidth, BUTTON_HEIGHT, new TextComponentTranslation("button.orespawn.mods"),
