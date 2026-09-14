@@ -13,8 +13,9 @@ palettes and world materials, flat bedrock, and bounded ore retrogen.
 This branch builds target-qualified version `4.1.0.110021`: the OreSpawn 4.1.0
 feature set for Minecraft 1.10.2 and Forge. It adds stable generation identity,
 non-loading geology sampling, per-resource background control, existing-world
-provider merge policy and a client world-settings extension point for add-ons
-such as Realistic Deposits while retaining API major 1. See the
+provider merge policy, an Ore Sources arbiter for equivalent provider ores and
+a client world-settings extension point for add-ons such as Realistic Deposits
+while retaining API major 1. See the
 [versioning policy](docs/VERSIONS.md) for the encoding and release convention.
 
 Its deprecated compatibility layer imports OreSpawn 1 and OreSpawn 3
@@ -56,6 +57,14 @@ client configuration hook. It shows each mod's version, integration lineage,
 provider revision and status; its cog opens an add-on-owned configuration
 screen when one is available. The in-game **Help & Guide** explains the other
 controls.
+
+On the ORES tab, **Ore Sources...** identifies configured ores that represent
+the same material. New worlds consolidate only reviewed, high-confidence MMD
+conflicts, so several sulfur providers do not automatically create several
+independent sulfur budgets. Existing worlds start in **Keep Separate** mode and
+retain their old frequency and output behaviour until their owner explicitly
+changes a policy. Third-party generators remain outside OreSpawn's control and
+are reported rather than disabled.
 
 Important files:
 

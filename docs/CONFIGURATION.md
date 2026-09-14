@@ -4,13 +4,14 @@ OreSpawn uses three JSON contracts:
 
 | File | Schema | Purpose |
 |---|---:|---|
-| `config/orespawn-worldgen.json` | 6 | Installed-pack defaults for new worlds |
-| `<world>/serverconfig/orespawn-worldgen.json` | 5 | Self-contained snapshot for one world |
-| `config/<modid>-orespawn.json` | 4 | Optional authoritative provider override |
+| `config/orespawn-worldgen.json` | 7 | Installed-pack defaults for new worlds |
+| `<world>/serverconfig/orespawn-worldgen.json` | 6 | Self-contained snapshot for one world |
+| `config/<modid>-orespawn.json` | 5 | Optional authoritative provider override |
 
-A provider may package schema 4 at `assets/<modid>/orespawn/provider.json`.
-Legacy provider schemas 1-3 remain accepted. Fluid deposits require schema 3;
-biome palettes and dimension materials require schema 4.
+A provider may package schema 5 at `assets/<modid>/orespawn/provider.json`.
+Legacy provider schemas 1-4 remain accepted. Fluid deposits require schema 3;
+biome palettes and dimension materials require schema 4; ore `material` and
+`placement_channel` declarations require schema 5.
 
 The profile for a new world is merged in this order: passive OreSpawn defaults,
 packaged or API providers, provider override files, the global configuration,
@@ -21,7 +22,7 @@ world. Restart after editing JSON by hand.
 
 | Field | Values | Meaning |
 |---|---|---|
-| `schema_version` | Contract-specific integer | Global 6, world 5, provider 4 |
+| `schema_version` | Contract-specific integer | Global 7, world 6, provider 5 |
 | `geology_mode` | `geome`, `legacy` | Sky/geome engine or Cyano legacy engine |
 | `place_fluid_deposits` | boolean | Master switch for configured fluid-deposit rules |
 | `manage_vanilla_ores` | boolean | Lets OreSpawn suppress and replace claimed vanilla ore features |
@@ -36,6 +37,7 @@ world. Restart after editing JSON by hand.
 | `biome_palettes` | object keyed by provider-owned rule ID | Optional native-biome overlays and surfaces |
 | `dimension_materials` | object keyed by provider-owned rule ID | Aquifer fluid, snow, and ice substitutions |
 | `ores` | object keyed by rule ID | Ore outputs and per-dimension placement |
+| `ore_source_policies` | object keyed by material and dimension/domain | Persisted output and placement arbitration choices |
 | `fluid_deposits` | object keyed by rule ID | Provider-owned fluids and per-dimension placement |
 | `retrogen` | object | Bounded ore retrogen controls |
 | `flat_bedrock` | object | Opt-in flat bedrock controls |
@@ -161,8 +163,11 @@ See `BIOMES.md` for complete examples and practical guidance.
 ## Ore Fields
 
 An ore has `enabled`, one output `block` or weighted `outputs`, and at least one
-entry in `dimensions` or `dimension_selectors`. Optional fields include `native_generation`,
-`suppress_vanilla`, `retrogen`, `deep_output`, and `deep_output_max_y`.
+entry in `dimensions` or `dimension_selectors`. Optional fields include
+`material`, `native_generation`, `suppress_vanilla`, `retrogen`, `deep_output`,
+and `deep_output_max_y`. Schema 5 `material` is a canonical material ID such as
+`orespawn:sulfur`; it lets several rules share outputs without sharing placement
+budgets.
 
 Each enabled ore dimension uses:
 
@@ -173,6 +178,7 @@ Each enabled ore dimension uses:
 | `quantity` | 1-64 | Fixed block budget for each attempt |
 | `min_quantity`, `max_quantity` | 1-64 | Inclusive random block-budget range; both fields are required |
 | `pattern` | pattern name or codec object | Deposit shape |
+| `placement_channel` | registry ID | Independent placement engine; built-ins default to `orespawn:standard`, custom patterns to their pattern-type ID |
 | `height_distribution` | one of four values | Vertical probability curve |
 | `discard_chance_on_air_exposure` | 0-1 | Chance to omit candidates touching cave air |
 | `spread` | 0-64 | Horizontal pattern reach |
@@ -202,6 +208,38 @@ both are present.
 The selector `orespawn:all_except_nether_end` covers every dimension except
 the vanilla Nether and End. Explicit rules in `dimensions` override selector
 rules for the same ore and dimension, including explicit disabled rules.
+
+## Ore Source Policies
+
+OreSpawn builds one immutable source catalog while providers and the Forge Ore
+Dictionary are being baked. Explicit `material` declarations win. Otherwise,
+only exact Ore Dictionary names of the form `oreX` are inferred; curated
+spelling aliases include sulfur/sulphur and aluminum/aluminium. Niter and
+Saltpeter remain distinct, and ambiguous entries are marked **Review required**
+instead of being guessed. Registry, dictionary and policy work never runs in a
+chunk-generation loop.
+
+Each `ore_source_policies` key combines the canonical material with an exact
+dimension or existing dimension-selector ID. A policy stores `mode` as
+`consolidated` or `keep_separate`, selected output rule IDs with positive
+weights, and one placement-source rule ID per placement channel. Consolidation
+runs the chosen placement rule's pattern, hosts, filters, height and frequency
+once; selected candidates contribute output bundles only. Output choice is
+stable for a whole ordinary vein, and custom patterns can supply a stable body
+identity so one deposit uses one source across chunk boundaries.
+
+New worlds consolidate only reviewed high-confidence MMD catalog conflicts.
+Upgraded worlds initialize discovered conflicts as `keep_separate`, preserving
+their historical placement frequency and outputs until changed through **Ore
+Sources...**. Policy edits affect newly generated chunks only and never cause
+retrogen. Missing selected candidates remain in the profile; remaining outputs
+are reweighted, while a channel with no remaining selected placement source is
+disabled and reported rather than silently reassigned.
+
+DenseMetals entries are shown as enrichment rather than interchangeable output.
+BaseSciences has no ordinary ore-source role. An Ore Dictionary member whose
+generator is not controlled by OreSpawn is reported as external generation and
+is never suppressed, so total abundance may still be increased by that mod.
 
 ## Fluid Deposits, Retrogen, And Bedrock
 

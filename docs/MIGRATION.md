@@ -117,16 +117,24 @@ replacement, retrogen, forced retrogen, flat bedrock, and bedrock thickness.
 Unknown numeric dimensions and obsolete block states are reported instead of
 guessed. Review `config/orespawn-migration/migration-report.txt` after import.
 
-Global schemas 1-5 and world schemas 1-4 are upgraded in memory and persisted
+Global schemas 1-6 and world schemas 1-5 are upgraded in memory and persisted
 where safe. A schema-1 world held only mode/oil/formation choices and is
 overlaid on the effective installed-pack profile. A schema-2 world is already
 a full snapshot and preserves its geology. Existing terrain is not rewritten.
 
-Provider schemas 1-3 remain readable. Schema 4 adds `biome_palettes`,
+Provider schemas 1-4 remain readable. Schema 4 adds `biome_palettes`,
 `dimension_materials`, and automatic fresh-world template metadata. Older
 profiles receive empty biome/material sections, so migration cannot change
 their terrain or biome output. Auto-selected templates are never applied to an
 existing world profile during migration.
+
+Provider schema 5 adds optional canonical ore `material` and per-rule
+`placement_channel` fields. Global schema 7 and world schema 6 persist
+`ore_source_policies`. A new world may consolidate only reviewed MMD conflicts;
+every discovered conflict in an upgraded world is initialized as
+`keep_separate`, preserving prior placement frequency, ordering and output
+behaviour. Missing selected sources remain recorded. Policy changes affect new
+chunks only and do not add retrogen.
 
 The old `place_crude_oil` and singleton `oil` fields migrate to
 `place_fluid_deposits` and a provider-owned rule. A valid block becomes

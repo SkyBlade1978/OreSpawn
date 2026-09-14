@@ -52,8 +52,9 @@ coverage with `OreDefinition.Builder.dimensionSelector(...)` and
 `OreDimensionSelector.ALL_EXCEPT_NETHER_AND_END`. Explicit dimensions
 override that selector and prevent duplicate placement.
 
-The builder emits provider schema 4. Legacy provider schemas 1-3 remain
-readable. Schema 4 is required for biome palettes and dimension materials.
+The builder emits provider schema 5. Legacy provider schemas 1-4 remain
+readable. Schema 4 is required for biome palettes and dimension materials;
+schema 5 adds ore material identity and independent placement channels.
 
 Provider-owned fluid deposits are declarative and may target several dimensions:
 
@@ -90,6 +91,32 @@ inclusions, with `.excludeBiome(...)` and `.excludeBiomeDictionary(...)` for
 exclusions. These methods work on both explicit `.dimension(...)` rules and
 `.dimensionSelector(...)` fallbacks; built definitions and their returned
 filter sets are immutable.
+
+Declare the canonical material separately from the output block when equivalent
+ores may be supplied by several mods:
+
+```java
+ResourceLocation sulfur = new ResourceLocation("orespawn", "sulfur");
+ResourceLocation standard = new ResourceLocation("orespawn", "standard");
+
+WorldgenProvider provider = WorldgenProvider.builder("examplemod", 2)
+    .ore(new ResourceLocation("examplemod", "ore/sulfur"), ore -> ore
+        .material(sulfur)
+        .dimension(new ResourceLocation("minecraft", "overworld"), placement -> placement
+            .placementChannel(standard)
+            .yRange(0, 48)
+            .attempts(4.0)
+            .quantity(8)
+            .pattern(OrePattern.VEIN)
+            .hostTag(new ResourceLocation("forge", "stone"))))
+    .build();
+```
+
+`OreDefinition.material()` is optional. Built-in patterns default their
+`OreDimensionDefinition.placementChannel()` to `orespawn:standard`; a custom
+pattern defaults to its registered pattern-type ID. Explicit channels keep an
+ordinary vein budget independent from a region-scale deposit budget while the
+material group may still share the same selectable outputs.
 
 Create one `BiomeRegistrar` during normal mod construction. It attaches to the
 calling mod's event bus and defers biome factories until Forge's biome registry
@@ -177,6 +204,12 @@ patterns must independently render only the slice intersecting the current
 chunk and continue to use `inside(...)` and `tryPlace(...)` for safe writes.
 Do not retain the sampler or placement context beyond the current call.
 
+For a body that intersects several chunks, call
+`tryPlace(x, y, z, stableBodyIdentity)` instead. This Java 8 default overload
+preserves the original three-coordinate method and therefore existing pattern
+binaries. OreSpawn uses the supplied identity to choose one output source for
+the complete body rather than independently selecting an output per chunk.
+
 Large-deposit add-ons may make one OreSpawn rule the controller for a resource
 in a dimension. Set `.backgroundGenerationScale(value)` on that rule to scale
 other OreSpawn-managed rules and vanilla generation for the same primary
@@ -184,6 +217,11 @@ output. The controller rule remains unscaled, omitted values mean `1.0`, zero
 fully suppresses background generation, and the lowest value wins when several
 controllers target the same resource. Vanilla decisions use a stable hash of
 world, dimension, chunk and resource rather than mutable event order.
+
+When a rule declares `material`, background scaling applies only to that
+material's `orespawn:standard` channel; it does not scale another custom
+placement engine. Undeclared legacy rules retain the existing block-based
+background behaviour.
 
 Providers whose entries capture structural configuration can call
 `.mergeNewEntriesIntoExistingWorlds(false)`. New worlds still receive the

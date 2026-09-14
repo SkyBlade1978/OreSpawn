@@ -46,6 +46,9 @@ safely instead of breaking world creation.
   region.
 - **Manage Vanilla Ores** lets OreSpawn replace vanilla ore features with the
   configured OreSpawn rules. Leave it off to keep normal Minecraft placement.
+- **Ore Sources** finds configured ores that represent the same material and
+  lets you consolidate their placement without losing the installed block
+  choices. It is available from the ORES tab beside **Add Block**.
 - **Mods** opens a paginated directory of loaded OreSpawn integrations. It
   reports the Forge mod version, native OS4 or legacy OS1-OS3 lineage, provider
   schema/revision and current status. Historical profile owners that are not
@@ -79,6 +82,25 @@ the installed default while preserving depth and deposit shape. Patterns decide
 whether a deposit is compact, vein-like, clustered, cloud-like, or below a
 fluid. Hosts decide which blocks, tags, or configured rock families it may
 replace.
+
+When two or more OreSpawn-managed rules represent one material, open **Ore
+Sources...**. The list reports the material, dimension, candidate count and
+whether it is Consolidated, Separate, Review required, Missing source, or also
+has External generation. Open a material to choose one placement source for
+each independent channel and enable one or more weighted output sources.
+
+Consolidated mode uses one placement budget, so three sulfur blocks do not mean
+three times as much sulfur. Each vein uses one selected output instead of a
+salt-and-pepper mixture. Custom region-scale deposit engines remain on their
+own placement channel and can keep one output across every chunk of a deposit.
+External native generators are explained but never disabled by OreSpawn.
+
+New worlds automatically consolidate only reviewed high-confidence MMD
+conflicts. Existing worlds start with conflicts Separate so their established
+frequency remains unchanged. Missing selected mods stay visible and are
+restored automatically if reinstalled. These edits stay pending until the main
+OreSpawn editor's **Done** is pressed; its **Cancel** discards them. Changes
+affect only newly generated chunks and never retrogen existing terrain.
 
 Removing a rock from generation does not unregister its block or recipes. It
 only prevents that rock appearing in newly generated terrain.
