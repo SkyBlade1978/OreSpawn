@@ -63,6 +63,7 @@ public final class GeomeConfig {
 	private static final Path CONFIG_V3_BACKUP_PATH = Paths.get("config", "orespawn-worldgen.v3.bak");
 	private static final Path CONFIG_V4_BACKUP_PATH = Paths.get("config", "orespawn-worldgen.v4.bak");
 	private static final Path CONFIG_V5_BACKUP_PATH = Paths.get("config", "orespawn-worldgen.v5.bak");
+	private static final Path CONFIG_V6_BACKUP_PATH = Paths.get("config", "orespawn-worldgen.v6.bak");
 	private static final Path BIOME_DEFAULTS_BACKUP_PATH = Paths.get("config",
 			"orespawn-worldgen.pre-biome-revision-3.bak");
 	private static final Path WORLDGEN_ALIAS_DEFAULTS_BACKUP_PATH = Paths.get("config",
@@ -72,7 +73,7 @@ public final class GeomeConfig {
 	private static final Path CONFIG_TEMP_PATH = Paths.get("config", "orespawn-worldgen.json.tmp");
 	private static final Path PROVIDER_DEFAULTS_BACKUP_PATH = Paths.get("config",
 			"orespawn-worldgen.pre-provider-defaults.bak");
-	public static final int SCHEMA_VERSION = 6;
+	public static final int SCHEMA_VERSION = 7;
 	private static final int BIOME_DEFAULTS_REVISION = 3;
 	private static final int WORLDGEN_ALIAS_DEFAULTS_REVISION = 1;
 	private static final int ORE_DEFAULTS_REVISION = 10;
@@ -98,6 +99,7 @@ public final class GeomeConfig {
 		JsonObject root = loadConfig();
 		boolean changed = OreSpawnOreIntegration.mergeProviderOres(root);
 		changed |= FluidDepositMigration.normalize(root);
+		changed |= OreSourcePolicies.initialize(root, false);
 		if (changed) {
 			writeProviderMerge(root);
 		}
@@ -195,13 +197,14 @@ public final class GeomeConfig {
 			int schemaVersion = getInt(root, "schema_version", 1);
 			if (schemaVersion < SCHEMA_VERSION) {
 				JsonObject migrated = schemaVersion <= 1 ? migrateV1(root) : JsonCopies.copy(root);
-				migrated = migrateToV6(migrated, defaults);
+				migrated = migrateToV7(migrated, defaults);
 				writeMigratedConfig(migrated,
 						schemaVersion <= 1 ? CONFIG_BACKUP_PATH
 								: schemaVersion == 2 ? CONFIG_V2_BACKUP_PATH
 										: schemaVersion == 3 ? CONFIG_V3_BACKUP_PATH
 												: schemaVersion == 4 ? CONFIG_V4_BACKUP_PATH
-														: CONFIG_V5_BACKUP_PATH);
+												: schemaVersion == 5 ? CONFIG_V5_BACKUP_PATH
+														: CONFIG_V6_BACKUP_PATH);
 				return migrated;
 			}
 			if (schemaVersion > SCHEMA_VERSION) {
@@ -664,14 +667,15 @@ public final class GeomeConfig {
 		return refreshBiomeDefaults(migrated, defaultConfig());
 	}
 
-	private static JsonObject migrateToV6(JsonObject original, JsonObject defaults) {
+	private static JsonObject migrateToV7(JsonObject original, JsonObject defaults) {
 		JsonObject migrated = getInt(original, "biome_defaults_revision", 0) < BIOME_DEFAULTS_REVISION
 				? refreshBiomeDefaults(original, defaults) : JsonCopies.copy(original);
 		FluidDepositMigration.normalize(migrated);
 		for (String key : new String[] { "geology_mode", "place_fluid_deposits", "fluid_deposits",
 				"manage_vanilla_ores", "ore_defaults_revision", "cyano", "ores",
 				"ore_providers", "providers", "worldgen_aliases", "default_template",
-				"terrain_dimensions", "biome_palettes", "dimension_materials" }) {
+				"terrain_dimensions", "biome_palettes", "dimension_materials",
+				OreSourcePolicies.SECTION }) {
 			if (!migrated.has(key)) {
 				migrated.add(key, JsonCopies.copy(defaults.get(key)));
 			}
@@ -1415,6 +1419,7 @@ public final class GeomeConfig {
 		root.add("cyano", defaultCyanoConfig());
 		root.add("fluid_deposits", new JsonObject());
 		root.add("ores", defaultOreConfig());
+		root.add(OreSourcePolicies.SECTION, new JsonObject());
 		root.add("ore_providers", new JsonObject());
 		root.add("providers", new JsonObject());
 		root.add("terrain_dimensions", new JsonObject());
