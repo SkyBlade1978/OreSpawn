@@ -688,7 +688,8 @@ task clientIntegrationProcess(type: JavaExec, dependsOn: prepareClientIntegratio
                 'The binary patch set is missing',
                 'FML appears to be missing any signature data',
                 'Unable to read a class file correctly',
-                'problem reading the entry META-INF/versions/11/'
+                'problem reading the entry META-INF/versions/11/',
+                'Trying to activate the universal filled bucket too late. Call it statically in your Mods class. Mod: Base Metals'
         ]
         List<String> unaccountedErrors = latest.readLines('UTF-8').findAll { line ->
             (line.contains('/ERROR]') || line.contains('/FATAL]'))

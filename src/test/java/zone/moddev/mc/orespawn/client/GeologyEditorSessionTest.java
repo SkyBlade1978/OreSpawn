@@ -2,6 +2,7 @@ package zone.moddev.mc.orespawn.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
@@ -178,5 +179,60 @@ class GeologyEditorSessionTest {
 		assertFalse(invalidSession.section("geomes").has(""));
 		assertFalse(invalidSession.section("geomes").has("bad:upper"));
 		assertTrue(invalidSession.section("geomes").has(geomeId));
+	}
+
+	@Test
+	void oreSourceEditsStayInsideThePendingEditorSession() {
+		WorldGeologyProfile original = profileWithOreSourcePolicy();
+		JsonObject before = original.rootCopy();
+		GeologyEditorSession session = new GeologyEditorSession(original);
+		GeologyEditorSession.OreSourceGroup group = session.oreSourceGroups().get(0);
+		assertEquals("keep_separate", group.mode);
+		assertThrows(UnsupportedOperationException.class, () -> group.candidates.clear());
+		assertThrows(UnsupportedOperationException.class,
+				() -> group.outputs.put("example:other", 2.0D));
+
+		session.setOreSourceMode(group.key, true);
+		session.setOreSourcePlacement(group.key, "orespawn:standard", "mineralogy:sulfur");
+		session.setOreSourceOutput(group.key, "mineralogy:sulfur", true, 3.5D);
+		GeologyEditorSession.OreSourceGroup edited = session.oreSourceGroups().get(0);
+		assertEquals("consolidated", edited.mode);
+		assertEquals("mineralogy:sulfur", edited.placements.get("orespawn:standard"));
+		assertEquals(3.5D, edited.outputs.get("mineralogy:sulfur").doubleValue());
+		assertEquals(before, original.rootCopy(), "editing must not persist the profile early");
+		assertFalse(before.equals(session.profile().rootCopy()));
+	}
+
+	private static WorldGeologyProfile profileWithOreSourcePolicy() {
+		JsonObject root = WorldGeologyProfile.recommended(false).toJson();
+		JsonObject policy = new JsonObject();
+		policy.addProperty("material", "orespawn:sulfur");
+		policy.addProperty("domain", "minecraft:overworld");
+		policy.addProperty("mode", "keep_separate");
+		policy.addProperty("status", "review_required");
+		policy.addProperty("review_required", true);
+		JsonObject outputs = new JsonObject();
+		outputs.addProperty("mineralogy:sulfur", 1.0D);
+		policy.add("outputs", outputs);
+		policy.add("placement_sources", new JsonObject());
+		JsonObject candidate = new JsonObject();
+		candidate.addProperty("source_id", "mineralogy:sulfur");
+		candidate.addProperty("owner", "mineralogy");
+		candidate.addProperty("owner_name", "Mineralogy");
+		candidate.addProperty("owner_version", "6.0.0");
+		candidate.addProperty("registry_id", "minecraft:iron_ore");
+		candidate.addProperty("metadata", 0);
+		candidate.addProperty("placement_channel", "orespawn:standard");
+		candidate.addProperty("loaded", true);
+		candidate.addProperty("external", false);
+		candidate.addProperty("enrichment", false);
+		candidate.add("ore_dictionary", new JsonArray());
+		JsonArray candidates = new JsonArray();
+		candidates.add(candidate);
+		policy.add("candidates", candidates);
+		JsonObject policies = new JsonObject();
+		policies.add("orespawn:sulfur|minecraft:overworld", policy);
+		root.add("ore_source_policies", policies);
+		return WorldGeologyProfile.fromJson(root, WorldGeologyProfile.recommended(false));
 	}
 }

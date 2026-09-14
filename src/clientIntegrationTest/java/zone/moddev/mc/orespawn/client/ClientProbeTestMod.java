@@ -201,9 +201,15 @@ public final class ClientProbeTestMod {
 				if (entry.nativeOs4() || entry.legacyLineages().isEmpty()) {
 					throw new IllegalStateException("Base Metals did not retain its legacy lineage");
 				}
-			} else if (!entry.nativeOs4() || entry.schemaVersion() != 4
+			} else if ("mineralogy".equals(entry.modId)) {
+				if (!entry.nativeOs4() || entry.schemaVersion() != 4 || entry.providerRevision() != 3) {
+					throw new IllegalStateException("Missing Mineralogy OS4 schema 4/provider revision 3: schema="
+							+ entry.schemaVersion() + ", revision=" + entry.providerRevision());
+				}
+			} else if (!entry.nativeOs4() || entry.schemaVersion() != 5
 					|| entry.providerRevision() < 1) {
-				throw new IllegalStateException("Missing native OS4 schema/revision for " + entry.modId);
+				throw new IllegalStateException("Missing native OS4 schema 5/revision for " + entry.modId
+						+ ": schema=" + entry.schemaVersion() + ", revision=" + entry.providerRevision());
 			}
 			boolean shouldConfigure = "realisticdeposits".equals(entry.modId);
 			if (entry.configurable() != shouldConfigure) {

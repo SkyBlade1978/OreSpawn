@@ -345,6 +345,187 @@ final class GeologyEditorSession {
 		}
 	}
 
+	List<OreSourceGroup> oreSourceGroups() {
+		List<OreSourceGroup> result = new ArrayList<>();
+		for (Entry<String, JsonElement> entry : section("ore_source_policies").entrySet()) {
+			if (!entry.getValue().isJsonObject()) continue;
+			JsonObject policy = entry.getValue().getAsJsonObject();
+			String material = string(policy, "material", "");
+			String domain = string(policy, "domain", "");
+			if (!validResource(material) || !validResource(domain)) continue;
+			List<OreSourceCandidate> candidates = new ArrayList<>();
+			if (policy.has("candidates") && policy.get("candidates").isJsonArray()) {
+				for (JsonElement element : policy.getAsJsonArray("candidates")) {
+					if (!element.isJsonObject()) continue;
+					JsonObject candidate = element.getAsJsonObject();
+					String sourceId = string(candidate, "source_id", "");
+					String channel = string(candidate, "placement_channel", "orespawn:standard");
+					String registryId = string(candidate, "registry_id", "");
+					if (sourceId.isEmpty() || !validResource(channel) || !validResource(registryId)) continue;
+					List<String> dictionary = new ArrayList<>();
+					if (candidate.has("ore_dictionary") && candidate.get("ore_dictionary").isJsonArray()) {
+						for (JsonElement name : candidate.getAsJsonArray("ore_dictionary")) {
+							try { dictionary.add(name.getAsString()); }
+							catch (RuntimeException ignored) { }
+						}
+					}
+					candidates.add(new OreSourceCandidate(sourceId,
+							string(candidate, "owner", ""), string(candidate, "owner_name", ""),
+							string(candidate, "owner_version", ""), registryId,
+							integer(candidate, "metadata", 0), channel, dictionary,
+							bool(candidate, "loaded", false), bool(candidate, "external", false),
+							bool(candidate, "enrichment", false)));
+				}
+			}
+			Collections.sort(candidates, (left, right) -> {
+				int owner = left.owner.compareTo(right.owner);
+				return owner != 0 ? owner : left.sourceId.compareTo(right.sourceId);
+			});
+			result.add(new OreSourceGroup(entry.getKey(), material, domain,
+					string(policy, "mode", "keep_separate"), string(policy, "status", "review_required"),
+					candidates, decimalMap(policy, "outputs"), stringMap(policy, "placement_sources")));
+		}
+		Collections.sort(result, (left, right) -> {
+			int material = left.material.compareTo(right.material);
+			return material != 0 ? material : left.domain.compareTo(right.domain);
+		});
+		return Collections.unmodifiableList(result);
+	}
+
+	void setOreSourceMode(String key, boolean consolidated) {
+		JsonObject policy = objectEntry(section("ore_source_policies"), key);
+		policy.addProperty("mode", consolidated ? "consolidated" : "keep_separate");
+		policy.addProperty("review_required", false);
+		refreshOreSourceStatus(policy);
+	}
+
+	void setOreSourcePlacement(String key, String channel, String sourceId) {
+		if (!validResource(channel)) return;
+		JsonObject policy = objectEntry(section("ore_source_policies"), key);
+		objectEntry(policy, "placement_sources").addProperty(channel, sourceId);
+		refreshOreSourceStatus(policy);
+	}
+
+	void setOreSourceOutput(String key, String sourceId, boolean enabled, double weight) {
+		JsonObject policy = objectEntry(section("ore_source_policies"), key);
+		JsonObject outputs = objectEntry(policy, "outputs");
+		if (!enabled) outputs.remove(sourceId);
+		else outputs.addProperty(sourceId, Math.max(0.001D, Math.min(1000000.0D, weight)));
+		refreshOreSourceStatus(policy);
+	}
+
+	private static void refreshOreSourceStatus(JsonObject policy) {
+		Set<String> missing = new HashSet<>();
+		boolean external = false;
+		boolean review = bool(policy, "review_required", false);
+		if (policy.has("candidates") && policy.get("candidates").isJsonArray()) {
+			for (JsonElement element : policy.getAsJsonArray("candidates")) {
+				if (!element.isJsonObject()) continue;
+				JsonObject candidate = element.getAsJsonObject();
+				if (!bool(candidate, "loaded", false)) missing.add(string(candidate, "source_id", ""));
+				external |= bool(candidate, "external", false);
+			}
+		}
+		Map<String, Double> outputs = decimalMap(policy, "outputs");
+		Map<String, String> placements = stringMap(policy, "placement_sources");
+		if ("consolidated".equals(string(policy, "mode", "keep_separate"))
+				&& (outputs.isEmpty() || placements.isEmpty())) {
+			policy.addProperty("status", "missing_source");
+			return;
+		}
+		for (String id : outputs.keySet()) {
+			if (missing.contains(id)) { policy.addProperty("status", "missing_source"); return; }
+		}
+		for (String id : placements.values()) {
+			if (missing.contains(id)) { policy.addProperty("status", "missing_source"); return; }
+		}
+		policy.addProperty("status", external ? "external_generation" : review ? "review_required"
+				: "consolidated".equals(string(policy, "mode", "keep_separate"))
+						? "consolidated" : "separate");
+	}
+
+	private static Map<String, Double> decimalMap(JsonObject parent, String key) {
+		if (!parent.has(key) || !parent.get(key).isJsonObject()) return Collections.emptyMap();
+		Map<String, Double> result = new LinkedHashMap<>();
+		for (Entry<String, JsonElement> entry : parent.getAsJsonObject(key).entrySet()) {
+			try {
+				double value = entry.getValue().getAsDouble();
+				if (Double.isFinite(value) && value > 0.0D) result.put(entry.getKey(), value);
+			} catch (RuntimeException ignored) { }
+		}
+		return Collections.unmodifiableMap(result);
+	}
+
+	private static Map<String, String> stringMap(JsonObject parent, String key) {
+		if (!parent.has(key) || !parent.get(key).isJsonObject()) return Collections.emptyMap();
+		Map<String, String> result = new LinkedHashMap<>();
+		for (Entry<String, JsonElement> entry : parent.getAsJsonObject(key).entrySet()) {
+			try { result.put(entry.getKey(), entry.getValue().getAsString()); }
+			catch (RuntimeException ignored) { }
+		}
+		return Collections.unmodifiableMap(result);
+	}
+
+	static final class OreSourceGroup {
+		final String key;
+		final String material;
+		final String domain;
+		final String mode;
+		final String status;
+		final List<OreSourceCandidate> candidates;
+		final Map<String, Double> outputs;
+		final Map<String, String> placements;
+
+		OreSourceGroup(String key, String material, String domain, String mode, String status,
+				List<OreSourceCandidate> candidates, Map<String, Double> outputs,
+				Map<String, String> placements) {
+			this.key = key;
+			this.material = material;
+			this.domain = domain;
+			this.mode = mode;
+			this.status = status;
+			this.candidates = Collections.unmodifiableList(new ArrayList<>(candidates));
+			this.outputs = outputs;
+			this.placements = placements;
+		}
+
+		List<String> channels() {
+			Set<String> result = new TreeSet<>();
+			for (OreSourceCandidate candidate : candidates) if (!candidate.external) result.add(candidate.channel);
+			return Collections.unmodifiableList(new ArrayList<>(result));
+		}
+	}
+
+	static final class OreSourceCandidate {
+		final String sourceId;
+		final String owner;
+		final String ownerName;
+		final String ownerVersion;
+		final String registryId;
+		final int metadata;
+		final String channel;
+		final List<String> oreDictionary;
+		final boolean loaded;
+		final boolean external;
+		final boolean enrichment;
+
+		OreSourceCandidate(String sourceId, String owner, String ownerName, String ownerVersion,
+				String registryId, int metadata, String channel, List<String> oreDictionary,
+				boolean loaded, boolean external, boolean enrichment) {
+			this.sourceId = sourceId;
+			this.owner = owner;
+			this.ownerName = ownerName;
+			this.ownerVersion = ownerVersion;
+			this.registryId = registryId;
+			this.metadata = metadata;
+			this.channel = channel;
+			this.oreDictionary = Collections.unmodifiableList(new ArrayList<>(oreDictionary));
+			this.loaded = loaded;
+			this.external = external;
+			this.enrichment = enrichment;
+		}
+	}
+
 	void resetEntry(String section, String id) {
 		JsonObject originalSection = object(original, section);
 		if (originalSection.has(id)) {

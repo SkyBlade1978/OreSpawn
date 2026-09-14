@@ -26,7 +26,7 @@ class OreSpawnScreenLayoutTest {
 					.sorted()
 					.collect(Collectors.toList());
 		}
-		assertEquals(25, screens.size(), "Review this render-order gate when screens are added or removed");
+		assertEquals(27, screens.size(), "Review this render-order gate when screens are added or removed");
 		for (Path screen : screens) {
 			String source = new String(Files.readAllBytes(screen), StandardCharsets.UTF_8);
 			int render = source.indexOf(
@@ -74,6 +74,39 @@ class OreSpawnScreenLayoutTest {
 				.contains("font, left, top + (row * rowIndex)"));
 		assertTrue(source.substring(fluidCall, fluid)
 				.contains("font, right, top + (row * rowIndex++)"));
+	}
+
+	@Test
+	void oreSourcesAndAddBlockShareTheCompactOreFooter() throws Exception {
+		String source = screenSource("GeologyMaterialsScreen.java");
+		int width = source.indexOf("int addWidth = tab == MaterialTab.ORES");
+		int sources = source.indexOf("button.orespawn.ore_sources", width);
+		int add = source.indexOf("button.orespawn.add_block", sources);
+		assertTrue(width >= 0 && sources > width && add > sources);
+		assertTrue(source.substring(width, add).contains("addX - addWidth - 5"));
+		assertTrue(source.substring(width, add).contains("addX, controlsY, addWidth, 20"));
+	}
+
+	@Test
+	void oreSourceDirectoryPaginatesClipsAndPreservesParentNavigation() throws Exception {
+		assertEquals(1, OreSourceListScreen.pageCount(0, 4));
+		assertEquals(1, OreSourceListScreen.pageCount(4, 4));
+		assertEquals(2, OreSourceListScreen.pageCount(5, 4));
+		String list = screenSource("OreSourceListScreen.java");
+		String detail = screenSource("OreSourceDetailScreen.java");
+		assertTrue(list.contains("pageSize = Math.max(1"));
+		assertTrue(detail.contains("pageSize = Math.max(1"));
+		assertTrue(list.contains("OreSpawnScreenLayout.fit"));
+		assertTrue(detail.contains("OreSpawnScreenLayout.fit"));
+		assertTrue(list.contains("minecraft.displayGuiScreen(parent)"));
+		assertTrue(detail.contains("syncWeights();\n\t\tif (error == null) minecraft.displayGuiScreen(parent)"));
+		assertTrue(detail.contains("toggle.enabled = !candidate.external && !candidate.enrichment"));
+	}
+
+	private static String screenSource(String name) throws Exception {
+		Path screen = Paths.get("src", "main", "java", "zone", "moddev", "mc",
+				"orespawn", "client", name);
+		return new String(Files.readAllBytes(screen), StandardCharsets.UTF_8);
 	}
 
 	private static void assertRowsClearFooter(int height) {
