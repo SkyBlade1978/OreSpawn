@@ -313,21 +313,17 @@ public final class OreSpawnOreGeneration {
 		boolean manageVanillaOres = bool(profile, "manage_vanilla_ores", false);
 		Map<ResourceLocation, Set<Block>> resolvedTags = new HashMap<>();
 		List<BakedOreRule> rules = new ArrayList<>();
+		Map<String, BakedOutputBundle> outputBundles = new LinkedHashMap<>();
 		Set<ResourceLocation> explicitDimensions = new HashSet<>();
 		for (Entry<String, JsonElement> oreEntry : profile.getAsJsonObject("ores").entrySet()) {
 			if (!oreEntry.getValue().isJsonObject()) {
 				continue;
 			}
 			JsonObject oreJson = oreEntry.getValue().getAsJsonObject();
-			if (!bool(oreJson, "enabled", true)) {
-				continue;
-			}
+			boolean oreEnabled = bool(oreJson, "enabled", true);
 			boolean nativeGeneration = bool(oreJson, "native_generation", false);
 			boolean retrogen = bool(oreJson, "retrogen", true);
 			boolean suppressVanilla = nativeGeneration || bool(oreJson, "suppress_vanilla", false);
-			if (nativeGeneration && !manageVanillaOres) {
-				continue;
-			}
 			ResourceLocation oreId = resource(string(oreJson, "block", oreEntry.getKey()));
 			Block output = oreId == null ? null : ForgeRegistries.BLOCKS.getValue(oreId);
 			JsonObject dimensions = objectOrEmpty(oreJson, "dimensions");
@@ -347,7 +343,10 @@ public final class OreSpawnOreGeneration {
 			BakedOutput[] outputs = bakeOutputs(oreJson, outputState);
 			ResourceLocation ruleId = resource(oreEntry.getKey());
 			if (ruleId == null) ruleId = oreId;
-			ResourceLocation material = OreSourcePolicies.material(oreJson,
+			outputBundles.put(ruleId.toString(), new BakedOutputBundle(
+					outputState, deepOutput, deepOutputMaxY, outputs));
+			if (!oreEnabled || (nativeGeneration && !manageVanillaOres)) continue;
+			ResourceLocation material = OreSourcePolicies.material(profile, oreJson,
 					new ItemStack(output, 1, integer(oreJson, "metadata", 0)));
 			boolean materialDeclared = resource(string(oreJson, "material", "")) != null;
 			BakedOreRule rule = new BakedOreRule(ruleId, output, material, materialDeclared,
@@ -423,7 +422,7 @@ public final class OreSpawnOreGeneration {
 					}
 				}
 			}
-			combined = arbitrate(profile, combined);
+			combined = arbitrate(profile, combined, outputBundles);
 			result.put(dimension, combined.toArray(new BakedOre[combined.size()]));
 			vanillaOutputs.put(dimension, Collections.unmodifiableSet(suppressed));
 			generationScales.put(dimension, Collections.unmodifiableMap(scales));
@@ -444,7 +443,7 @@ public final class OreSpawnOreGeneration {
 						rule.material, rule.selector.backgroundGenerationScale);
 			}
 		}
-		selectorList = arbitrate(profile, selectorList);
+		selectorList = arbitrate(profile, selectorList, outputBundles);
 		BakedOre[] selectorResult = selectorList.toArray(new BakedOre[selectorList.size()]);
 		LOGGER.info("Baked {} OreSpawn-managed ore definitions across {} dimensions",
 				rules.size(), result.size());
@@ -461,7 +460,8 @@ public final class OreSpawnOreGeneration {
 				Collections.unmodifiableMap(selectorMaterialScales));
 	}
 
-	private static List<BakedOre> arbitrate(JsonObject profile, List<BakedOre> original) {
+	private static List<BakedOre> arbitrate(JsonObject profile, List<BakedOre> original,
+			Map<String, BakedOutputBundle> outputBundles) {
 		if (!profile.has(OreSourcePolicies.SECTION)
 				|| !profile.get(OreSourcePolicies.SECTION).isJsonObject()) return original;
 		JsonObject policies = profile.getAsJsonObject(OreSourcePolicies.SECTION);
@@ -480,11 +480,13 @@ public final class OreSpawnOreGeneration {
 			if (!"consolidated".equals(string(policy, "mode", "keep_separate"))) continue;
 			Map<String, Double> weights = positiveWeights(objectOrEmpty(policy, "outputs"));
 			List<BakedSource> sources = new ArrayList<>();
-			Set<ResourceLocation> sourceIds = new HashSet<>();
-			for (BakedOre candidate : entry.getValue()) {
-				Double weight = weights.get(candidate.ruleId.toString());
-				if (weight != null && sourceIds.add(candidate.ruleId)) {
-					sources.add(new BakedSource(candidate, weight.doubleValue()));
+			Set<String> sourceIds = new HashSet<>();
+			for (Entry<String, Double> selectedOutput : weights.entrySet()) {
+				BakedOutputBundle bundle = outputBundles.get(selectedOutput.getKey());
+				if (bundle == null) bundle = candidateBundle(policy, selectedOutput.getKey());
+				if (bundle != null && sourceIds.add(selectedOutput.getKey())) {
+					sources.add(new BakedSource(selectedOutput.getKey(), bundle,
+							selectedOutput.getValue().doubleValue()));
 				}
 			}
 			if (sources.isEmpty()) {
@@ -575,6 +577,25 @@ public final class OreSpawnOreGeneration {
 			} catch (RuntimeException ignored) { }
 		}
 		return result;
+	}
+
+	private static BakedOutputBundle candidateBundle(JsonObject policy, String sourceId) {
+		if (!policy.has("candidates") || !policy.get("candidates").isJsonArray()) return null;
+		for (JsonElement element : policy.getAsJsonArray("candidates")) {
+			if (!element.isJsonObject()) continue;
+			JsonObject candidate = element.getAsJsonObject();
+			if (!sourceId.equals(string(candidate, "source_id", ""))
+					|| !bool(candidate, "loaded", false)
+					|| bool(candidate, "enrichment", false)) continue;
+			ResourceLocation id = resource(string(candidate, "registry_id", ""));
+			Block block = id == null ? null : ForgeRegistries.BLOCKS.getValue(id);
+			if (block == null || block == Blocks.AIR) return null;
+			IBlockState state = state(block, integer(candidate, "metadata", 0));
+			return new BakedOutputBundle(state, state, -1,
+					new BakedOutput[] { new BakedOutput(state, 1.0D,
+							Integer.MIN_VALUE, Integer.MAX_VALUE) });
+		}
+		return null;
 	}
 
 	private static void reportBakeProblem(String message, Object... arguments) {
@@ -908,6 +929,7 @@ public final class OreSpawnOreGeneration {
 		final boolean retrogen;
 		final boolean backgroundController;
 		final double backgroundGenerationScale;
+		final BakedOutputBundle outputBundle;
 		final BakedSource[] arbitrationSources;
 
 		BakedOre(ResourceLocation ruleId, ResourceLocation material, boolean materialDeclared,
@@ -976,6 +998,7 @@ public final class OreSpawnOreGeneration {
 			this.retrogen = retrogen;
 			this.backgroundController = backgroundController;
 			this.backgroundGenerationScale = backgroundGenerationScale;
+			this.outputBundle = new BakedOutputBundle(output, deepOutput, deepOutputMaxY, outputs);
 			this.arbitrationSources = arbitrationSources;
 		}
 
@@ -989,31 +1012,17 @@ public final class OreSpawnOreGeneration {
 					backgroundGenerationScale, sources.toArray(new BakedSource[sources.size()]));
 		}
 
-		BakedOre outputSource(long worldSeed, ResourceLocation dimension, long identity) {
-			if (arbitrationSources.length == 0) return this;
+		BakedOutputBundle outputSource(long worldSeed, ResourceLocation dimension, long identity) {
+			if (arbitrationSources.length == 0) return outputBundle;
 			double total = 0.0D;
 			for (BakedSource source : arbitrationSources) total += source.weight;
 			double choice = weightedChoice(outputSelectionSample(
 					worldSeed, dimension, material, channel, identity), total);
 			for (BakedSource source : arbitrationSources) {
 				choice -= source.weight;
-				if (choice < 0.0D) return source.ore;
+				if (choice < 0.0D) return source.bundle;
 			}
-			return arbitrationSources[arbitrationSources.length - 1].ore;
-		}
-
-		IBlockState outputAt(int y, Random random) {
-			if (y <= deepOutputMaxY) return deepOutput;
-			double total = 0.0D;
-			for (BakedOutput candidate : outputs) if (candidate.acceptsY(y)) total += candidate.weight;
-			if (total <= 0.0D) return output;
-			double choice = random.nextDouble() * total;
-			for (BakedOutput candidate : outputs) {
-				if (!candidate.acceptsY(y)) continue;
-				choice -= candidate.weight;
-				if (choice <= 0.0D) return candidate.state;
-			}
-			return output;
+			return arbitrationSources[arbitrationSources.length - 1].bundle;
 		}
 
 		boolean accepts(IBlockState state, Random random, BakedGeomeConfig config) {
@@ -1058,12 +1067,43 @@ public final class OreSpawnOreGeneration {
 	}
 
 	private static final class BakedSource {
-		final BakedOre ore;
+		final String sourceId;
+		final BakedOutputBundle bundle;
 		final double weight;
 
-		BakedSource(BakedOre ore, double weight) {
-			this.ore = ore;
+		BakedSource(String sourceId, BakedOutputBundle bundle, double weight) {
+			this.sourceId = sourceId;
+			this.bundle = bundle;
 			this.weight = weight;
+		}
+	}
+
+	private static final class BakedOutputBundle {
+		final IBlockState output;
+		final IBlockState deepOutput;
+		final int deepOutputMaxY;
+		final BakedOutput[] outputs;
+
+		BakedOutputBundle(IBlockState output, IBlockState deepOutput, int deepOutputMaxY,
+				BakedOutput[] outputs) {
+			this.output = output;
+			this.deepOutput = deepOutput;
+			this.deepOutputMaxY = deepOutputMaxY;
+			this.outputs = outputs;
+		}
+
+		IBlockState outputAt(int y, Random random) {
+			if (y <= deepOutputMaxY) return deepOutput;
+			double total = 0.0D;
+			for (BakedOutput candidate : outputs) if (candidate.acceptsY(y)) total += candidate.weight;
+			if (total <= 0.0D) return output;
+			double choice = random.nextDouble() * total;
+			for (BakedOutput candidate : outputs) {
+				if (!candidate.acceptsY(y)) continue;
+				choice -= candidate.weight;
+				if (choice <= 0.0D) return candidate.state;
+			}
+			return output;
 		}
 	}
 
@@ -1166,8 +1206,8 @@ public final class OreSpawnOreGeneration {
 		private int minY;
 		private int maxY;
 		private int quantity;
-		private BakedOre ordinaryOutput;
-		private BakedOre identifiedOutput;
+		private BakedOutputBundle ordinaryOutput;
+		private BakedOutputBundle identifiedOutput;
 		private long identifiedOutputIdentity;
 		private boolean hasIdentifiedOutput;
 
@@ -1255,7 +1295,7 @@ public final class OreSpawnOreGeneration {
 			return tryPlaceWithOutput(x, y, z, identifiedOutput);
 		}
 
-		private boolean tryPlaceWithOutput(int x, int y, int z, BakedOre outputSource) {
+		private boolean tryPlaceWithOutput(int x, int y, int z, BakedOutputBundle outputSource) {
 			if (!inside(x, y, z)) return false;
 			cursor.setPos(x, y, z);
 			IBlockState existing = world == null ? chunk.getBlockState(cursor) : world.getBlockState(cursor);

@@ -46,9 +46,14 @@ safely instead of breaking world creation.
   region.
 - **Manage Vanilla Ores** lets OreSpawn replace vanilla ore features with the
   configured OreSpawn rules. Leave it off to keep normal Minecraft placement.
-- **Ore Sources** finds configured ores that represent the same material and
-  lets you consolidate their placement without losing the installed block
-  choices. It is available from the ORES tab beside **Add Block**.
+- **Ore Sources** opens the material-group editor beside **Add Block**. It
+  starts on **Needs Attention**; use **All Groups** for harmless single-source
+  materials. The left side edits the friendly group name and exact Ore
+  Dictionary aliases. The right side selects installed ore blocks: **Balanced**
+  shares them equally, **Single** uses one, **Custom** enables a weighted
+  subset, and **Keep Original** preserves every old placement rule. At narrow
+  resolutions the same editor uses separate list and selected-group pages.
+  Advanced placement-channel choices stay collapsed unless needed.
 - **Mods** opens a paginated directory of loaded OreSpawn integrations. It
   reports the Forge mod version, native OS4 or legacy OS1-OS3 lineage, provider
   schema/revision and current status. Historical profile owners that are not

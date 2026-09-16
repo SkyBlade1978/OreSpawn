@@ -137,6 +137,8 @@ class WorldGeologyProfileTest {
 				global, GeologyMode.GEOME, false);
 		JsonObject freshPolicy = onlyPolicy(fresh.toJson());
 		assertEquals("consolidated", freshPolicy.get("mode").getAsString());
+		assertEquals("balanced", freshPolicy.get("output_mode").getAsString());
+		assertEquals(2, freshPolicy.getAsJsonObject("outputs").entrySet().size());
 
 		JsonObject legacy = JsonCopies.copy(global);
 		legacy.addProperty("schema_version", 5);
@@ -145,6 +147,27 @@ class WorldGeologyProfileTest {
 		JsonObject upgradedPolicy = onlyPolicy(upgraded.toJson());
 		assertEquals("keep_separate", upgradedPolicy.get("mode").getAsString());
 		assertEquals(2, upgradedPolicy.getAsJsonObject("outputs").entrySet().size());
+		assertTrue(upgraded.toJson().has(OreMaterialGroups.SECTION));
+		assertEquals(WorldGeologyProfile.SCHEMA_VERSION,
+				upgraded.toJson().get("schema_version").getAsInt());
+	}
+
+	@Test
+	void schemaSixConsolidatedPoliciesInferBalancedOutputMode() {
+		JsonObject global = completeGlobalFixture();
+		addSulfurConflict(global);
+		WorldGeologyProfile fresh = WorldGeologyProfile.fromGlobalConfig(
+				global, GeologyMode.GEOME, false);
+		JsonObject oldWorld = fresh.rootCopy();
+		oldWorld.addProperty("schema_version", 6);
+		oldWorld.remove(OreMaterialGroups.SECTION);
+		onlyPolicy(oldWorld).remove("output_mode");
+
+		WorldGeologyProfile migrated = WorldGeologyProfile.fromJson(oldWorld, fresh);
+
+		assertEquals(7, migrated.toJson().get("schema_version").getAsInt());
+		assertEquals("balanced", onlyPolicy(migrated.toJson()).get("output_mode").getAsString());
+		assertTrue(migrated.toJson().has(OreMaterialGroups.SECTION));
 	}
 
 	@Test

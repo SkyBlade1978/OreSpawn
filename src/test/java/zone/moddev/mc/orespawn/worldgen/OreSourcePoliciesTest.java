@@ -11,6 +11,7 @@ import java.util.Collections;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import zone.moddev.mc.orespawn.test.Forge12TestBootstrap;
@@ -48,8 +49,8 @@ class OreSourcePoliciesTest {
 				Arrays.asList("dustSulfur", "crushedSulfur")).material);
 		OreSourcePolicies.Inference invalid = OreSourcePolicies.inferMaterial(
 				Collections.singletonList("oreBad Path"));
-		assertEquals("orespawn:review_required", invalid.material.toString());
-		assertTrue(invalid.reviewRequired);
+		assertEquals(null, invalid.material);
+		assertFalse(invalid.reviewRequired);
 	}
 
 	@Test
@@ -60,8 +61,10 @@ class OreSourcePoliciesTest {
 
 		assertEquals("consolidated", policy.get("mode").getAsString());
 		assertEquals("consolidated", policy.get("status").getAsString());
-		assertEquals(1, policy.getAsJsonObject("outputs").entrySet().size());
+		assertEquals("balanced", policy.get("output_mode").getAsString());
+		assertEquals(2, policy.getAsJsonObject("outputs").entrySet().size());
 		assertTrue(policy.getAsJsonObject("outputs").has("mineralogy:sulfur"));
+		assertTrue(policy.getAsJsonObject("outputs").has("baseminerals:sulfur"));
 		assertEquals("mineralogy:sulfur", policy.getAsJsonObject("placement_sources")
 				.get("orespawn:standard").getAsString());
 	}
@@ -148,7 +151,7 @@ class OreSourcePoliciesTest {
 				.get("orespawn:standard").getAsString());
 		assertEquals("electricadvantage:sulfur_district", policy.getAsJsonObject("placement_sources")
 				.get("realisticdeposits:district").getAsString());
-		assertEquals(1, policy.getAsJsonObject("outputs").entrySet().size());
+		assertEquals(3, policy.getAsJsonObject("outputs").entrySet().size());
 	}
 
 	@Test
@@ -210,6 +213,160 @@ class OreSourcePoliciesTest {
 		JsonObject builtIn = new JsonObject();
 		builtIn.addProperty("pattern", "vein");
 		assertEquals("orespawn:standard", OreSourcePolicies.placementChannel(builtIn).toString());
+	}
+
+	@Test
+	void sameVanillaOutputWithComplementaryPlacementRulesIsNotAConflict() {
+		JsonObject root = root();
+		addOre(root, "minecraft:gold_ore", "minecraft", "minecraft:gold_ore",
+				"orespawn:gold", "minecraft:overworld", null);
+		addOre(root, "orespawn:vanilla_gold_badlands", "minecraft", "minecraft:gold_ore",
+				"orespawn:gold", "minecraft:overworld", null);
+
+		OreSourcePolicies.initialize(root, false);
+
+		assertEquals(1, root.getAsJsonObject(OreSourcePolicies.SECTION).entrySet().size());
+		OreSourcePolicies.GroupView group = OreSourcePolicies.snapshot(root).groups().get(0);
+		assertEquals("separate", group.status,
+				"Complementary normal and Badlands rules are one harmless material group");
+		assertEquals(1, group.outputs.size());
+	}
+
+	@Test
+	void sameOutputAcrossIndependentPlacementChannelsIsNotAConflict() {
+		JsonObject root = root();
+		addOre(root, "minecraft:iron_ore", "minecraft", "minecraft:iron_ore",
+				"orespawn:iron", "minecraft:overworld", null);
+		addOre(root, "realisticdeposits:overworld_iron", "realisticdeposits", "minecraft:iron_ore",
+				"orespawn:iron", "minecraft:overworld", "realisticdeposits:stratiform_seam");
+
+		OreSourcePolicies.initialize(root, false);
+
+		assertEquals(1, root.getAsJsonObject(OreSourcePolicies.SECTION).entrySet().size());
+		OreSourcePolicies.GroupView group = OreSourcePolicies.snapshot(root).groups().get(0);
+		assertEquals("separate", group.status,
+				"A placement engine using the same output remains an independent channel");
+		assertEquals(1, group.outputs.size());
+		assertEquals(2, group.placements.size());
+	}
+
+	@Test
+	void differentOwnersInTheSameChannelStillCompeteForOnePlacementBudget() {
+		JsonObject root = root();
+		addOre(root, "otherone:sulfur", "otherone", "minecraft:gold_ore",
+				"orespawn:sulfur", "minecraft:overworld", null);
+		addOre(root, "othertwo:sulfur", "othertwo", "minecraft:gold_ore",
+				"orespawn:sulfur", "minecraft:overworld", null);
+
+		OreSourcePolicies.initialize(root, false);
+
+		assertEquals(1, root.getAsJsonObject(OreSourcePolicies.SECTION).entrySet().size());
+		assertEquals("review_required", policy(root).get("status").getAsString());
+	}
+
+	@Test
+	void duplicateRegistryStatesAppearAsOneSelectableOutput() {
+		JsonObject root = root();
+		addOre(root, "otherone:sulfur", "otherone", "minecraft:gold_ore",
+				"orespawn:sulfur", "minecraft:overworld", null);
+		addOre(root, "othertwo:sulfur", "othertwo", "minecraft:gold_ore",
+				"orespawn:sulfur", "minecraft:overworld", null);
+
+		OreSourcePolicies.initialize(root, false);
+
+		assertEquals(1, policy(root).getAsJsonObject("outputs").entrySet().size());
+		assertEquals(2, policy(root).getAsJsonArray("candidates").size(),
+				"the placement candidates remain auditable even when their output state is shared");
+	}
+
+	@Test
+	void snapshotsOrderFriendlyMaterialGroupsDeterministically() {
+		JsonObject root = root();
+		addOre(root, "example:zinc", "example", "minecraft:gold_ore",
+				"orespawn:zinc", "minecraft:overworld", null);
+		addOre(root, "example:copper", "example", "minecraft:iron_ore",
+				"orespawn:copper", "minecraft:overworld", null);
+		OreSourcePolicies.initialize(root, true);
+
+		java.util.List<OreSourcePolicies.GroupView> groups = OreSourcePolicies.snapshot(root).groups();
+		assertEquals("orespawn:copper", groups.get(0).material.toString());
+		assertEquals("orespawn:zinc", groups.get(1).material.toString());
+	}
+
+	@Test
+	void separateLegacyPolicyForOneLoadedOutputIsHiddenWithoutBeingDeleted() {
+		JsonObject root = root();
+		addOre(root, "minecraft:gold_ore", "minecraft", "minecraft:gold_ore",
+				"orespawn:gold", "minecraft:overworld", null);
+		addOre(root, "orespawn:vanilla_gold_badlands", "minecraft", "minecraft:iron_ore",
+				"orespawn:gold", "minecraft:overworld", null);
+		OreSourcePolicies.initialize(root, true);
+		JsonObject policies = root.getAsJsonObject(OreSourcePolicies.SECTION);
+		assertEquals(1, policies.entrySet().size());
+
+		root.getAsJsonObject("ores").getAsJsonObject("orespawn:vanilla_gold_badlands")
+				.addProperty("block", "minecraft:gold_ore");
+		OreSourcePolicies.initialize(root, true);
+
+		assertEquals(1, policies.entrySet().size(), "Existing profile data must not be rewritten away");
+		assertEquals(1, OreSourcePolicies.snapshot(root).groups().size(),
+				"All Groups must retain harmless single-output material groups");
+	}
+
+	@Test
+	void inactiveManagedProviderRemainsAnOutputWithoutOwningPlacement() {
+		JsonObject root = root();
+		addOre(root, "mineralogy:sulfur", "mineralogy", "minecraft:iron_ore",
+				"orespawn:sulfur", "minecraft:overworld", null);
+		addOre(root, "electricadvantage:sulfur", "electricadvantage", "minecraft:gold_ore",
+				"orespawn:sulfur", "minecraft:overworld", null);
+		root.getAsJsonObject("ores").getAsJsonObject("electricadvantage:sulfur")
+				.addProperty("enabled", false);
+
+		OreSourcePolicies.initialize(root, false);
+
+		JsonObject policy = policy(root);
+		assertEquals("balanced", policy.get("output_mode").getAsString());
+		assertEquals(2, policy.getAsJsonObject("outputs").entrySet().size());
+		assertEquals("mineralogy:sulfur", policy.getAsJsonObject("placement_sources")
+				.get("orespawn:standard").getAsString());
+		boolean outputOnly = false;
+		for (JsonElement element : policy.getAsJsonArray("candidates")) {
+			JsonObject candidate = element.getAsJsonObject();
+			if ("electricadvantage:sulfur".equals(candidate.get("source_id").getAsString())) {
+				outputOnly = candidate.get("loaded").getAsBoolean()
+						&& !candidate.get("placement_active").getAsBoolean()
+						&& !candidate.get("external").getAsBoolean();
+			}
+		}
+		assertTrue(outputOnly);
+	}
+
+	@Test
+	void materialGroupsInferExactNamesAndPreserveCuratedEdits() {
+		JsonObject root = root();
+		JsonObject groups = new JsonObject();
+		JsonObject sulfur = new JsonObject();
+		sulfur.addProperty("display_name", "Brimstone");
+		JsonArray aliases = new JsonArray();
+		aliases.add(new JsonPrimitive("oreSulfur"));
+		sulfur.add("ore_dictionary_entries", aliases);
+		groups.add("orespawn:sulfur", sulfur);
+		root.add(OreMaterialGroups.SECTION, groups);
+		addOre(root, "example:cobalt", "example", "minecraft:coal_ore",
+				"minecraft:overworld");
+		root.getAsJsonObject("ores").getAsJsonObject("example:cobalt").remove("material");
+		// The test block has no cobalt dictionary entry; exercise inference directly.
+		OreSourcePolicies.Inference cobalt = OreSourcePolicies.inferMaterial(root,
+				Collections.singletonList("oreCobalt"));
+		assertEquals("orespawn:cobalt", cobalt.material.toString());
+
+		OreMaterialGroups.initialize(root);
+		JsonObject savedSulfur = root.getAsJsonObject(OreMaterialGroups.SECTION)
+				.getAsJsonObject("orespawn:sulfur");
+		assertEquals("Brimstone", savedSulfur.get("display_name").getAsString());
+		assertEquals(1, savedSulfur.getAsJsonArray("ore_dictionary_entries").size(),
+				"curated aliases return only through the explicit Reset Defaults action");
 	}
 
 	private static JsonObject rootWithSulfurConflict() {

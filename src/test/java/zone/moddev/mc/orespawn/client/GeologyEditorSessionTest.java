@@ -193,6 +193,7 @@ class GeologyEditorSessionTest {
 				() -> group.outputs.put("example:other", 2.0D));
 
 		session.setOreSourceMode(group.key, true);
+		session.setOreSourceOutputMode(group.key, "custom");
 		session.setOreSourcePlacement(group.key, "orespawn:standard", "mineralogy:sulfur");
 		session.setOreSourceOutput(group.key, "mineralogy:sulfur", true, 3.5D);
 		GeologyEditorSession.OreSourceGroup edited = session.oreSourceGroups().get(0);
@@ -201,6 +202,93 @@ class GeologyEditorSessionTest {
 		assertEquals(3.5D, edited.outputs.get("mineralogy:sulfur").doubleValue());
 		assertEquals(before, original.rootCopy(), "editing must not persist the profile early");
 		assertFalse(before.equals(session.profile().rootCopy()));
+	}
+
+	@Test
+	void equivalentPlacementRulesAreHiddenWithoutChangingThePendingProfile() {
+		JsonObject root = WorldGeologyProfile.recommended(false).toJson();
+		JsonObject policy = new JsonObject();
+		policy.addProperty("material", "orespawn:gold");
+		policy.addProperty("domain", "minecraft:overworld");
+		policy.addProperty("mode", "keep_separate");
+		policy.addProperty("status", "review_required");
+		policy.addProperty("review_required", true);
+		JsonObject outputs = new JsonObject();
+		outputs.addProperty("minecraft:gold_ore", 1.0D);
+		outputs.addProperty("orespawn:vanilla_gold_badlands", 1.0D);
+		policy.add("outputs", outputs);
+		JsonObject placements = new JsonObject();
+		placements.addProperty("orespawn:standard", "minecraft:gold_ore");
+		policy.add("placement_sources", placements);
+		JsonArray candidates = new JsonArray();
+		candidates.add(candidate("minecraft:gold_ore", "minecraft", "minecraft:gold_ore",
+				"orespawn:standard", false));
+		candidates.add(candidate("orespawn:vanilla_gold_badlands", "minecraft", "minecraft:gold_ore",
+				"orespawn:standard", false));
+		policy.add("candidates", candidates);
+		JsonObject policies = new JsonObject();
+		policies.add("orespawn:gold|minecraft:overworld", policy);
+		root.add("ore_source_policies", policies);
+		WorldGeologyProfile profile = WorldGeologyProfile.fromJson(root,
+				WorldGeologyProfile.recommended(false));
+		GeologyEditorSession session = new GeologyEditorSession(profile);
+		JsonObject before = session.profile().rootCopy();
+
+		assertEquals(1, session.oreSourceGroups().size());
+		assertTrue(session.oreSourceGroups().get(0).isRedundantSeparatePolicy());
+		assertEquals(before, session.profile().rootCopy(),
+				"Listing a harmless group must not rewrite the pending profile");
+	}
+
+	@Test
+	void customMaterialGroupsKeepStableIdsAndRequireConfirmedAliasMoves() {
+		WorldGeologyProfile original = profileWithOreSourcePolicy();
+		JsonObject before = original.rootCopy();
+		GeologyEditorSession session = new GeologyEditorSession(original);
+
+		String key = session.addOreMaterialGroup();
+		String material = key.substring(0, key.indexOf('|'));
+		session.renameOreMaterialGroup(material, "Volcanogenic Sulphides");
+		assertTrue(session.addOreMaterialAlias(material, "oreCopperZinc", false));
+		assertFalse(session.addOreMaterialAlias(material, "oreSulfur", false));
+		assertTrue(session.addOreMaterialAlias(material, "oreSulfur", true));
+
+		assertEquals(material, session.oreDictionaryOwner("oreSulfur"));
+		assertEquals("Volcanogenic Sulphides", session.oreSourceGroups().stream()
+				.filter(group -> material.equals(group.material)).findFirst().get().displayName);
+		assertTrue(session.oreMaterialGroupsChanged());
+		assertEquals(before, original.rootCopy(), "pending group edits must not persist before main Done");
+
+		session.deleteOreMaterialGroup(material);
+		assertEquals(null, session.oreDictionaryOwner("oreSulfur"));
+		assertFalse(key.equals(session.addOreMaterialGroup()),
+				"deleted group IDs remain reserved by their dormant policy");
+		session.resetOreMaterialGroup("orespawn:sulfur");
+		assertEquals("orespawn:sulfur", session.oreDictionaryOwner("oreSulfur"));
+	}
+
+	@Test
+	void balancedSingleAndCustomModesKeepOneExplicitOutputPolicy() {
+		GeologyEditorSession session = new GeologyEditorSession(profileWithTwoOreOutputs());
+		String key = session.oreSourceGroups().get(0).key;
+
+		session.setOreSourceOutputMode(key, "balanced");
+		GeologyEditorSession.OreSourceGroup balanced = session.oreSourceGroups().get(0);
+		assertEquals(2, balanced.outputs.size());
+		assertTrue(balanced.outputs.values().stream().allMatch(weight -> weight == 1.0D));
+
+		session.setOreSourceOutputMode(key, "single");
+		GeologyEditorSession.OreSourceGroup single = session.oreSourceGroups().get(0);
+		assertEquals(1, single.outputs.size());
+		assertTrue(single.outputs.containsKey("mineralogy:sulfur"),
+				"Single initially follows the reviewed placement priority");
+
+		session.setOreSourceOutputMode(key, "custom");
+		session.setOreSourceOutput(key, "baseminerals:sulfur", true, 2.5D);
+		session.setOreSourceOutput(key, "mineralogy:sulfur", false, 1.0D);
+		GeologyEditorSession.OreSourceGroup custom = session.oreSourceGroups().get(0);
+		assertEquals(1, custom.outputs.size());
+		assertEquals(2.5D, custom.outputs.get("baseminerals:sulfur").doubleValue());
 	}
 
 	private static WorldGeologyProfile profileWithOreSourcePolicy() {
@@ -224,8 +312,11 @@ class GeologyEditorSessionTest {
 		candidate.addProperty("metadata", 0);
 		candidate.addProperty("placement_channel", "orespawn:standard");
 		candidate.addProperty("loaded", true);
+		candidate.addProperty("placement_active", true);
 		candidate.addProperty("external", false);
 		candidate.addProperty("enrichment", false);
+		candidate.addProperty("review_required", true);
+		candidate.addProperty("material_declared", false);
 		candidate.add("ore_dictionary", new JsonArray());
 		JsonArray candidates = new JsonArray();
 		candidates.add(candidate);
@@ -234,5 +325,37 @@ class GeologyEditorSessionTest {
 		policies.add("orespawn:sulfur|minecraft:overworld", policy);
 		root.add("ore_source_policies", policies);
 		return WorldGeologyProfile.fromJson(root, WorldGeologyProfile.recommended(false));
+	}
+
+	private static WorldGeologyProfile profileWithTwoOreOutputs() {
+		JsonObject root = profileWithOreSourcePolicy().rootCopy();
+		JsonObject policy = root.getAsJsonObject("ore_source_policies")
+				.getAsJsonObject("orespawn:sulfur|minecraft:overworld");
+		policy.getAsJsonObject("outputs").addProperty("baseminerals:sulfur", 1.0D);
+		policy.getAsJsonObject("placement_sources")
+				.addProperty("orespawn:standard", "mineralogy:sulfur");
+		policy.getAsJsonArray("candidates").add(candidate("baseminerals:sulfur",
+				"baseminerals", "minecraft:gold_ore", "orespawn:standard", false));
+		return WorldGeologyProfile.fromJson(root, WorldGeologyProfile.recommended(false));
+	}
+
+	private static JsonObject candidate(String sourceId, String owner, String registryId,
+			String channel, boolean reviewRequired) {
+		JsonObject candidate = new JsonObject();
+		candidate.addProperty("source_id", sourceId);
+		candidate.addProperty("owner", owner);
+		candidate.addProperty("owner_name", owner);
+		candidate.addProperty("owner_version", "");
+		candidate.addProperty("registry_id", registryId);
+		candidate.addProperty("metadata", 0);
+		candidate.addProperty("placement_channel", channel);
+		candidate.addProperty("loaded", true);
+		candidate.addProperty("placement_active", true);
+		candidate.addProperty("external", false);
+		candidate.addProperty("enrichment", false);
+		candidate.addProperty("review_required", reviewRequired);
+		candidate.addProperty("material_declared", false);
+		candidate.add("ore_dictionary", new JsonArray());
+		return candidate;
 	}
 }

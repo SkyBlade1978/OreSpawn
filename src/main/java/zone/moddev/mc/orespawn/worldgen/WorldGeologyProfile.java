@@ -22,7 +22,7 @@ import org.apache.logging.log4j.Logger;
 
 /** A complete, self-contained snapshot of the geology settings for one world. */
 public final class WorldGeologyProfile {
-	public static final int SCHEMA_VERSION = 6;
+	public static final int SCHEMA_VERSION = 7;
 
 	private static final Logger LOGGER = LogManager.getLogger();
 
@@ -39,6 +39,7 @@ public final class WorldGeologyProfile {
 	private WorldGeologyProfile(JsonObject root, GeologyMode fallbackMode, boolean fallbackFluidDeposits) {
 		this.root = JsonCopies.copy(root);
 		FluidDepositMigration.normalize(this.root);
+		OreMaterialGroups.initialize(this.root);
 		if (!this.root.has(OreSourcePolicies.SECTION)
 				|| !this.root.get(OreSourcePolicies.SECTION).isJsonObject()) {
 			this.root.add(OreSourcePolicies.SECTION, new JsonObject());
@@ -89,7 +90,7 @@ public final class WorldGeologyProfile {
 		if (schema >= 2) {
 			JsonObject migrated = JsonCopies.copy(json);
 			for (String key : new String[] { "terrain_dimensions", "providers",
-					"biome_palettes", "dimension_materials" }) {
+					"biome_palettes", "dimension_materials", OreMaterialGroups.SECTION }) {
 				if (!migrated.has(key) && fallback.root.has(key)) {
 					migrated.add(key, JsonCopies.copy(fallback.root.get(key)));
 				}
@@ -270,7 +271,8 @@ public final class WorldGeologyProfile {
 			return configured;
 		}
 		int hash = 17;
-		for (String key : new String[] { "ores", "ore_source_policies", "fluid_deposits",
+		for (String key : new String[] { "ores", OreMaterialGroups.SECTION,
+				"ore_source_policies", "fluid_deposits",
 				"flat_bedrock", "providers" }) {
 			if (root.has(key)) {
 				hash = (31 * hash) + root.get(key).toString().hashCode();

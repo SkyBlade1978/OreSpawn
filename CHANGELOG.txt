@@ -6,10 +6,20 @@ Version 4.1.0.110021
   upgraded worlds retain their previous separate placement and output behaviour.
 * Select one weighted output for an entire ordinary vein or custom deposit body
   using stable world/deposit identity, including safe missing-mod restoration.
-* Add paginated Ore Sources list and detail screens for mode, placement-source
-  and output-weight control without persisting changes until the main editor's Done.
+* Replace the technical Ore Sources list/detail flow with one responsive
+  material-group editor for friendly names, exact Ore Dictionary aliases and
+  selectable ore blocks. It uses side-by-side panes when wide and list/detail
+  pages at compact resolutions.
+* Add Keep Original, Balanced, Single and Custom output modes. Reviewed fresh
+  MMD conflicts balance every eligible output through one placement budget;
+  inactive provider definitions remain selectable outputs without contributing
+  another placement rule.
+* Ship curated Sulfur/Sulphur and Aluminum/Aluminium groups, keep Niter and
+  Saltpeter distinct, deduplicate identical registry states, and allow confirmed
+  alias reassignment plus stable custom groups. Group edits are saved to the
+  world and future-world defaults only when the main editor's Done is accepted.
 * Add provider schema 5 material and placement-channel declarations, global
-  schema 7 and world-profile schema 6 while retaining older readable schemas.
+  schema 8 and world-profile schema 7 while retaining older readable schemas.
 * Add an extended, binary-compatible ore generation context exposing stable
   world seed, dimension and current-chunk identity to compiled pattern add-ons.
 * Expose the active geology sampler to patterns when the generated dimension
@@ -30,7 +40,7 @@ Version 4.1.0.110021
   chunks.
 * Preserve API major 1, provider schemas 1-4, existing pattern binaries,
   migration behaviour and generated chunks while advancing active schemas to
-  provider 5, global 7 and world profile 6.
+  provider 5, global 8 and world profile 7.
 
 Version 4.0.16.110021
 

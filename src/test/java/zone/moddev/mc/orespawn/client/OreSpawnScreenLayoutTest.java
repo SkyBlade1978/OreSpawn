@@ -1,6 +1,7 @@
 package zone.moddev.mc.orespawn.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
@@ -26,7 +27,7 @@ class OreSpawnScreenLayoutTest {
 					.sorted()
 					.collect(Collectors.toList());
 		}
-		assertEquals(27, screens.size(), "Review this render-order gate when screens are added or removed");
+		assertEquals(26, screens.size(), "Review this render-order gate when screens are added or removed");
 		for (Path screen : screens) {
 			String source = new String(Files.readAllBytes(screen), StandardCharsets.UTF_8);
 			int render = source.indexOf(
@@ -93,14 +94,35 @@ class OreSpawnScreenLayoutTest {
 		assertEquals(1, OreSourceListScreen.pageCount(4, 4));
 		assertEquals(2, OreSourceListScreen.pageCount(5, 4));
 		String list = screenSource("OreSourceListScreen.java");
-		String detail = screenSource("OreSourceDetailScreen.java");
-		assertTrue(list.contains("pageSize = Math.max(1"));
-		assertTrue(detail.contains("pageSize = Math.max(1"));
+		assertTrue(list.contains("private static final int WIDE_MINIMUM = 520"));
+		assertTrue(list.contains("compact(width)"));
+		assertTrue(list.contains("initDirectory("));
+		assertTrue(list.contains("initOutputs("));
 		assertTrue(list.contains("OreSpawnScreenLayout.fit"));
-		assertTrue(detail.contains("OreSpawnScreenLayout.fit"));
+		assertTrue(list.contains("button.orespawn.ore_source.needs_attention"));
+		assertTrue(list.contains("button.orespawn.ore_source.all_groups"));
+		assertTrue(list.contains("button.orespawn.ore_source.add_group"));
+		assertTrue(list.contains("outputCandidates()"));
+		assertTrue(list.contains("button.orespawn.ore_source.advanced"));
+		assertTrue(list.contains(", 20,"), "Material Groups must use normal Forge-height controls");
 		assertTrue(list.contains("minecraft.displayGuiScreen(parent)"));
-		assertTrue(detail.contains("syncWeights();\n\t\tif (error == null) minecraft.displayGuiScreen(parent)"));
-		assertTrue(detail.contains("toggle.enabled = !candidate.external && !candidate.enrichment"));
+		assertTrue(list.contains("toggle.enabled = candidate.loaded && !candidate.enrichment"));
+		assertFalse(Files.exists(Paths.get("src", "main", "java", "zone", "moddev", "mc",
+				"orespawn", "client", "OreSourceDetailScreen.java")),
+				"The technical detail screen must not remain as a second competing flow");
+	}
+
+	@Test
+	void materialGroupDefaultsPersistOnlyThroughMainDone() throws Exception {
+		String main = screenSource("OreSpawnWorldSettingsScreen.java");
+		String groups = screenSource("OreSourceListScreen.java");
+		int save = main.indexOf("private void saveAndClose()");
+		int persistence = main.indexOf("GeomeConfig.persistOreMaterialGroups", save);
+		assertTrue(save >= 0 && persistence > save);
+		assertFalse(groups.contains("persistOreMaterialGroups"),
+				"leaving Material Groups must not persist future-world defaults");
+		assertTrue(groups.contains("minecraft.displayGuiScreen(parent)"),
+				"Done and Escape return to the pending ORES editor session");
 	}
 
 	private static String screenSource(String name) throws Exception {

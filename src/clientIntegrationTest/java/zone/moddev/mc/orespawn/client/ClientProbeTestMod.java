@@ -3,6 +3,7 @@ package zone.moddev.mc.orespawn.client;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -50,6 +51,8 @@ public final class ClientProbeTestMod {
 	private boolean worldSettingsOpened;
 	private boolean modsDirectoryRendered;
 	private boolean directoryStackValidated =
+			System.getProperty("clientprobe.expectedMods", "").trim().isEmpty();
+	private boolean oreSourcesValidated =
 			System.getProperty("clientprobe.expectedMods", "").trim().isEmpty();
 	private boolean longEditorRoundTrip;
 
@@ -236,7 +239,60 @@ public final class ClientProbeTestMod {
 				}
 			}
 		}
+		if (expected.contains("mineralogy") && expected.contains("electricadvantage")) {
+			validateExpectedOreSources((OreSpawnWorldSettingsScreen) root);
+		}
 		directoryStackValidated = true;
+	}
+
+	private void validateExpectedOreSources(OreSpawnWorldSettingsScreen root) {
+		GeologyEditorSession.OreSourceGroup sulfur = null;
+		for (GeologyEditorSession.OreSourceGroup group : editorSession(root).oreSourceGroups()) {
+			if ("orespawn:sulfur".equals(group.material)
+					&& "minecraft:overworld".equals(group.domain)) sulfur = group;
+		}
+		if (sulfur == null) throw new IllegalStateException("Missing curated Sulfur material group");
+		if (!"Sulfur".equals(sulfur.displayName)
+				|| !sulfur.oreDictionaryEntries.contains("oreSulfur")
+				|| !sulfur.oreDictionaryEntries.contains("oreSulphur")) {
+			throw new IllegalStateException("Sulfur aliases were not grouped correctly: "
+					+ sulfur.oreDictionaryEntries);
+		}
+		if (!"consolidated".equals(sulfur.mode) || !"balanced".equals(sulfur.outputMode)) {
+			throw new IllegalStateException("Fresh Sulfur policy was not Balanced: mode="
+					+ sulfur.mode + ", outputMode=" + sulfur.outputMode);
+		}
+		boolean mineralogy = false;
+		boolean electricOutputOnly = false;
+		for (GeologyEditorSession.OreSourceCandidate candidate : sulfur.outputCandidates()) {
+			if ("mineralogy:sulfur_ore".equals(candidate.registryId)) {
+				mineralogy = candidate.loaded && candidate.active && !candidate.external;
+			}
+			if ("electricadvantage:sulfur_ore".equals(candidate.registryId)) {
+				electricOutputOnly = candidate.loaded && !candidate.active && !candidate.external;
+			}
+			if (("mineralogy:sulfur_ore".equals(candidate.registryId)
+					|| "electricadvantage:sulfur_ore".equals(candidate.registryId))
+					&& !sulfur.outputs.containsKey(candidate.sourceId)) {
+				throw new IllegalStateException("Balanced Sulfur output is not selected: "
+						+ candidate.sourceId);
+			}
+		}
+		if (!mineralogy || !electricOutputOnly) {
+			throw new IllegalStateException("Sulfur outputs were not classified correctly: mineralogy="
+					+ mineralogy + ", electricOutputOnly=" + electricOutputOnly);
+		}
+		oreSourcesValidated = true;
+	}
+
+	private static GeologyEditorSession editorSession(OreSpawnWorldSettingsScreen root) {
+		try {
+			Field field = OreSpawnWorldSettingsScreen.class.getDeclaredField("session");
+			field.setAccessible(true);
+			return (GeologyEditorSession) field.get(root);
+		} catch (ReflectiveOperationException failure) {
+			throw new IllegalStateException("Could not inspect the active Ore Sources editor session", failure);
+		}
 	}
 
 	private Button nextNavigationButton(OreSpawnWorldSettingsScreen root) {
@@ -393,6 +449,7 @@ public final class ClientProbeTestMod {
 		values.setProperty("world_settings_opened", Boolean.toString(worldSettingsOpened));
 		values.setProperty("mods_directory_rendered", Boolean.toString(modsDirectoryRendered));
 		values.setProperty("directory_stack_validated", Boolean.toString(directoryStackValidated));
+		values.setProperty("ore_sources_validated", Boolean.toString(oreSourcesValidated));
 		values.setProperty("long_editor_roundtrip", Boolean.toString(longEditorRoundTrip));
 		values.setProperty("editor_routes", Integer.toString(editorRoutes.size()));
 		values.setProperty("editor_classes", editorRoutes.toString());

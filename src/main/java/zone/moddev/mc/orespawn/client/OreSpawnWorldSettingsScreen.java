@@ -8,6 +8,7 @@ import java.util.Objects;
 
 import zone.moddev.mc.orespawn.OreSpawnConfig.GeologyMode;
 import zone.moddev.mc.orespawn.worldgen.FormationSettings.Preset;
+import zone.moddev.mc.orespawn.worldgen.GeomeConfig;
 import zone.moddev.mc.orespawn.worldgen.WorldGeologyProfile;
 import zone.moddev.mc.orespawn.worldgen.WorldGeologyProfileManager;
 import zone.moddev.mc.orespawn.integration.WorldgenIntegrationManager;
@@ -278,6 +279,11 @@ public final class OreSpawnWorldSettingsScreen extends OreSpawnScreen {
 		List<String> errors = session.validate();
 		if (!errors.isEmpty()) {
 			validationError = new net.minecraft.util.text.TextComponentString(errors.get(0));
+			return;
+		}
+		if (session.oreMaterialGroupsChanged()
+				&& !GeomeConfig.persistOreMaterialGroups(session.oreMaterialGroupsCopy())) {
+			validationError = new TextComponentTranslation("error.orespawn.ore_source.defaults_write");
 			return;
 		}
 		WorldGeologyProfileManager.setPendingNewWorldProfile(session.profile());

@@ -34,7 +34,10 @@ final class OreSourcePolicies {
 	static final String SECTION = "ore_source_policies";
 	private static final String MODE_CONSOLIDATED = "consolidated";
 	private static final String MODE_SEPARATE = "keep_separate";
-	private static final ResourceLocation REVIEW = new ResourceLocation("orespawn", "review_required");
+	private static final String OUTPUT_BALANCED = "balanced";
+	private static final String OUTPUT_SINGLE = "single";
+	private static final String OUTPUT_CUSTOM = "custom";
+	private static final ResourceLocation REVIEW = OreMaterialGroups.REVIEW;
 	private static final Map<String, List<String>> PRIORITIES = priorities();
 	private static final Set<String> ORDINARY_MMD = Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(
 			"basemetals", "modernmetals", "basegems", "baseminerals", "fantasymetals",
@@ -47,13 +50,18 @@ final class OreSourcePolicies {
 	 * Existing selections are never discarded, which lets missing mods return.
 	 */
 	static boolean initialize(JsonObject root, boolean existingWorld) {
+		boolean changed = OreMaterialGroups.initialize(root);
 		boolean hadPolicies = root.has(SECTION) && root.get(SECTION).isJsonObject();
 		JsonObject policies = object(root, SECTION);
 		Map<String, Group> groups = discover(root);
-		boolean changed = !hadPolicies;
+		for (Group group : groups.values()) {
+			Set<String> names = new LinkedHashSet<>();
+			for (Candidate candidate : group.candidates) names.addAll(candidate.oreNames);
+			changed |= OreMaterialGroups.ensureDefinition(root, group.material, names);
+		}
+		changed |= !hadPolicies;
 		Set<String> refreshedKeys = new LinkedHashSet<>();
 		for (Group group : groups.values()) {
-			if (!group.needsPolicy()) continue;
 			String key = key(group.material, group.domain);
 			JsonObject previous = policies.has(key) && policies.get(key).isJsonObject()
 					? policies.getAsJsonObject(key) : null;
@@ -91,21 +99,27 @@ final class OreSourcePolicies {
 		for (Entry<String, JsonElement> entry : policies.entrySet()) {
 			if (!entry.getValue().isJsonObject()) continue;
 			JsonObject policy = entry.getValue().getAsJsonObject();
+			if (bool(policy, "dormant", false)) continue;
 			ResourceLocation material = resource(string(policy, "material", ""));
 			ResourceLocation domain = resource(string(policy, "domain", ""));
 			if (material == null || domain == null) continue;
 			Group current = discovered.get(key(material, domain));
 			List<Candidate> candidates = readCandidates(policy, current);
-			views.add(new GroupView(entry.getKey(), material, domain,
-					string(policy, "mode", MODE_SEPARATE), status(policy, candidates), candidates,
+			String mode = string(policy, "mode", MODE_SEPARATE);
+			OreMaterialGroups.Definition definition = OreMaterialGroups.definition(root, material);
+			views.add(new GroupView(entry.getKey(), material, domain, definition.displayName,
+					definition.oreDictionaryEntries, definition.curated,
+					mode, outputMode(policy), status(policy, candidates), candidates,
 					decimalMap(policy, "outputs"), stringMap(policy, "placement_sources")));
 			seen.add(entry.getKey());
 		}
 		for (Group group : discovered.values()) {
 			String key = key(group.material, group.domain);
-			if (seen.contains(key) || !group.needsPolicy()) continue;
+			if (seen.contains(key)) continue;
 			JsonObject policy = createPolicy(group, true);
-			views.add(new GroupView(key, group.material, group.domain, MODE_SEPARATE,
+			OreMaterialGroups.Definition definition = OreMaterialGroups.definition(root, group.material);
+			views.add(new GroupView(key, group.material, group.domain, definition.displayName,
+					definition.oreDictionaryEntries, definition.curated, MODE_SEPARATE, OUTPUT_CUSTOM,
 					status(policy, group.candidates), immutableCandidates(group.candidates),
 					decimalMap(policy, "outputs"), stringMap(policy, "placement_sources")));
 		}
@@ -118,6 +132,12 @@ final class OreSourcePolicies {
 		ResourceLocation explicit = resource(string(ore, "material", ""));
 		if (explicit != null) return explicit;
 		return inferMaterial(oreNames(output)).material;
+	}
+
+	static ResourceLocation material(JsonObject root, JsonObject ore, ItemStack output) {
+		ResourceLocation explicit = resource(string(ore, "material", ""));
+		if (explicit != null) return explicit;
+		return inferMaterial(root, oreNames(output)).material;
 	}
 
 	static ResourceLocation placementChannel(JsonObject rule) {
@@ -135,28 +155,14 @@ final class OreSourcePolicies {
 	}
 
 	static Inference inferMaterial(Iterable<String> oreNames) {
-		Set<String> materials = new LinkedHashSet<>();
-		List<String> exact = new ArrayList<>();
-		for (String name : oreNames) {
-			if (name == null || name.length() <= 3 || !name.startsWith("ore")
-					|| !Character.isUpperCase(name.charAt(3))) continue;
-			exact.add(name);
-			String token = name.substring(3).toLowerCase(Locale.ROOT);
-			if ("sulphur".equals(token)) token = "sulfur";
-			if ("aluminium".equals(token)) token = "aluminum";
-			materials.add(token);
-		}
-		Collections.sort(exact);
-		if (materials.size() == 1) {
-			String token = materials.iterator().next();
-			if (!token.matches("[a-z0-9_./-]+")) return new Inference(REVIEW, true, exact);
-			try {
-				return new Inference(new ResourceLocation("orespawn", token), false, exact);
-			} catch (RuntimeException invalidDictionaryName) {
-				return new Inference(REVIEW, true, exact);
-			}
-		}
-		return new Inference(materials.size() > 1 ? REVIEW : null, materials.size() > 1, exact);
+		JsonObject root = new JsonObject();
+		root.add(OreMaterialGroups.SECTION, OreMaterialGroups.defaults());
+		return inferMaterial(root, oreNames);
+	}
+
+	static Inference inferMaterial(JsonObject root, Iterable<String> oreNames) {
+		OreMaterialGroups.Inference inferred = OreMaterialGroups.infer(root, oreNames);
+		return new Inference(inferred.material, inferred.reviewRequired, inferred.names);
 	}
 
 	static String key(ResourceLocation material, ResourceLocation domain) {
@@ -165,18 +171,21 @@ final class OreSourcePolicies {
 
 	private static Map<String, Group> discover(JsonObject root) {
 		Map<String, Group> groups = new LinkedHashMap<>();
+		boolean manageVanillaOres = bool(root, "manage_vanilla_ores", false);
 		JsonObject ores = object(root, "ores");
 		for (Entry<String, JsonElement> oreEntry : ores.entrySet()) {
 			if (!oreEntry.getValue().isJsonObject()) continue;
 			JsonObject ore = oreEntry.getValue().getAsJsonObject();
-			if (!bool(ore, "enabled", true)) continue;
+			boolean oreActive = bool(ore, "enabled", true)
+					&& (!bool(ore, "native_generation", false) || manageVanillaOres);
 			ResourceLocation blockId = resource(string(ore, "block", oreEntry.getKey()));
 			Block block = blockId == null ? null : ForgeRegistries.BLOCKS.getValue(blockId);
 			if (block == null || block == Blocks.AIR) continue;
 			int metadata = integer(ore, "metadata", 0);
 			ItemStack stack = new ItemStack(block, 1, metadata);
-			Inference inferred = inferMaterial(oreNames(stack));
+			Inference inferred = inferMaterial(root, oreNames(stack));
 			ResourceLocation material = resource(string(ore, "material", ""));
+			boolean materialDeclared = material != null;
 			if (material == null) material = inferred.material;
 			if (material == null) continue;
 			String owner = owner(ore, blockId);
@@ -184,36 +193,39 @@ final class OreSourcePolicies {
 			if (role == Role.NONE) continue;
 			for (Entry<String, JsonElement> dimension : object(ore, "dimensions").entrySet()) {
 				addConfigured(groups, oreEntry.getKey(), owner, blockId, metadata, material,
-						resource(dimension.getKey()), dimension.getValue(), inferred, role);
+						resource(dimension.getKey()), dimension.getValue(), inferred, role,
+						oreActive, materialDeclared);
 			}
 			for (Entry<String, JsonElement> selector : object(ore, "dimension_selectors").entrySet()) {
 				addConfigured(groups, oreEntry.getKey(), owner, blockId, metadata, material,
-						resource(selector.getKey()), selector.getValue(), inferred, role);
+						resource(selector.getKey()), selector.getValue(), inferred, role,
+						oreActive, materialDeclared);
 			}
 		}
-		addExternalDictionaryCandidates(groups);
+		addExternalDictionaryCandidates(groups, root);
 		return groups;
 	}
 
 	private static void addConfigured(Map<String, Group> groups, String sourceId, String owner,
 			ResourceLocation blockId, int metadata, ResourceLocation material, ResourceLocation domain,
-			JsonElement ruleElement, Inference inferred, Role role) {
-		if (domain == null || !ruleElement.isJsonObject()
-				|| !bool(ruleElement.getAsJsonObject(), "enabled", true)) return;
+			JsonElement ruleElement, Inference inferred, Role role, boolean oreActive,
+			boolean materialDeclared) {
+		if (domain == null || !ruleElement.isJsonObject()) return;
 		if (role == Role.NETHER && !"minecraft:the_nether".equals(domain.toString())) return;
 		if (role == Role.END && !"minecraft:the_end".equals(domain.toString())) return;
 		JsonObject rule = ruleElement.getAsJsonObject();
+		boolean active = oreActive && bool(rule, "enabled", true);
 		Candidate candidate = new Candidate(sourceId, owner, modName(owner), modVersion(owner), blockId,
-				metadata, material, domain, placementChannel(rule), inferred.names, true, false,
-				role == Role.ENRICHMENT, inferred.reviewRequired);
+				metadata, material, domain, placementChannel(rule), inferred.names, true, active,
+				false, role == Role.ENRICHMENT, inferred.reviewRequired, materialDeclared);
 		group(groups, material, domain).add(candidate);
 	}
 
-	private static void addExternalDictionaryCandidates(Map<String, Group> groups) {
+	private static void addExternalDictionaryCandidates(Map<String, Group> groups, JsonObject root) {
 		if (groups.isEmpty()) return;
 		Map<ResourceLocation, List<String>> namesByMaterial = new HashMap<>();
 		for (String name : safeOreNames()) {
-			Inference inference = inferMaterial(Collections.singletonList(name));
+			Inference inference = inferMaterial(root, Collections.singletonList(name));
 			if (inference.material != null && !inference.reviewRequired) {
 				namesByMaterial.computeIfAbsent(inference.material, ignored -> new ArrayList<>()).add(name);
 			}
@@ -234,7 +246,8 @@ final class OreSourcePolicies {
 					String sourceId = "external/" + id.toString() + "/" + stack.getMetadata();
 					group.add(new Candidate(sourceId, owner, modName(owner), modVersion(owner), id,
 							stack.getMetadata(), group.material, group.domain, STANDARD,
-							Collections.singletonList(oreName), loaded(owner), true, false, false));
+							Collections.singletonList(oreName), loaded(owner), false, true, false, false,
+							false));
 				}
 			}
 		}
@@ -247,9 +260,12 @@ final class OreSourcePolicies {
 		Candidate preferred = preferred(group);
 		boolean automatic = !existingWorld && preferred != null && highConfidence(group);
 		policy.addProperty("mode", automatic ? MODE_CONSOLIDATED : MODE_SEPARATE);
+		policy.addProperty("output_mode", automatic ? OUTPUT_BALANCED : OUTPUT_CUSTOM);
 		JsonObject outputs = new JsonObject();
-		if (automatic) outputs.addProperty(preferred.sourceId, 1.0D);
-		else for (Candidate candidate : group.configured()) outputs.addProperty(candidate.sourceId, 1.0D);
+		for (Candidate candidate : group.outputs()) {
+			if (!automatic && candidate.external) continue;
+			outputs.addProperty(candidate.sourceId, 1.0D);
+		}
 		policy.add("outputs", outputs);
 		JsonObject placements = new JsonObject();
 		for (ResourceLocation channel : group.channels()) {
@@ -272,9 +288,12 @@ final class OreSourcePolicies {
 		if (!MODE_CONSOLIDATED.equals(string(policy, "mode", MODE_SEPARATE))) {
 			policy.addProperty("mode", MODE_SEPARATE);
 		}
+		policy.addProperty("output_mode", outputMode(policy));
 		if (!policy.has("outputs") || !policy.get("outputs").isJsonObject()) {
 			JsonObject outputs = new JsonObject();
-			for (Candidate candidate : group.configured()) outputs.addProperty(candidate.sourceId, 1.0D);
+			for (Candidate candidate : group.outputs()) if (!candidate.external) {
+				outputs.addProperty(candidate.sourceId, 1.0D);
+			}
 			policy.add("outputs", outputs);
 		}
 		if (!policy.has("placement_sources") || !policy.get("placement_sources").isJsonObject()) {
@@ -287,6 +306,19 @@ final class OreSourcePolicies {
 		policy.addProperty("review_required", "review_required".equals(status)
 				|| bool(previous, "review_required", false));
 		return policy;
+	}
+
+	private static String outputMode(JsonObject policy) {
+		String configured = string(policy, "output_mode", "");
+		if (OUTPUT_BALANCED.equals(configured) || OUTPUT_SINGLE.equals(configured)
+				|| OUTPUT_CUSTOM.equals(configured)) return configured;
+		Map<String, Double> outputs = decimalMap(policy, "outputs");
+		if (outputs.size() <= 1) return OUTPUT_SINGLE;
+		double first = outputs.values().iterator().next();
+		for (double value : outputs.values()) {
+			if (Double.compare(first, value) != 0) return OUTPUT_CUSTOM;
+		}
+		return OUTPUT_BALANCED;
 	}
 
 	private static String status(JsonObject policy, List<Candidate> candidates) {
@@ -308,7 +340,7 @@ final class OreSourcePolicies {
 		}
 		for (String selected : placements.values()) {
 			Candidate candidate = current.get(selected);
-			if (candidate == null || !candidate.loaded) return "missing_source";
+			if (candidate == null || !candidate.loaded || !candidate.active) return "missing_source";
 		}
 		if (external) return "external_generation";
 		if (review || bool(policy, "review_required", false)) return "review_required";
@@ -368,14 +400,15 @@ final class OreSourcePolicies {
 		return new Candidate(string(json, "source_id", ""), string(json, "owner", block.getResourceDomain()),
 				string(json, "owner_name", ""), string(json, "owner_version", ""), block,
 				integer(json, "metadata", 0), material, domain, channel, names,
-				bool(json, "loaded", defaultLoaded), bool(json, "external", false),
-				bool(json, "enrichment", false), bool(json, "review_required", false));
+				bool(json, "loaded", defaultLoaded), bool(json, "placement_active", defaultLoaded),
+				bool(json, "external", false), bool(json, "enrichment", false),
+				bool(json, "review_required", false), bool(json, "material_declared", false));
 	}
 
 	private static boolean highConfidence(Group group) {
 		List<String> priority = PRIORITIES.get(group.material.getResourcePath());
-		if (priority == null || group.configured().size() < 2 || group.hasExternal()) return false;
-		for (Candidate candidate : group.configured()) if (!priority.contains(candidate.owner)) return false;
+		if (priority == null || group.managed().size() < 2 || group.hasExternal()) return false;
+		for (Candidate candidate : group.managed()) if (!priority.contains(candidate.owner)) return false;
 		return true;
 	}
 
@@ -552,19 +585,28 @@ final class OreSourcePolicies {
 		final String key;
 		final ResourceLocation material;
 		final ResourceLocation domain;
+		final String displayName;
+		final List<String> oreDictionaryEntries;
+		final boolean curated;
 		final String mode;
+		final String outputMode;
 		final String status;
 		final List<Candidate> candidates;
 		final Map<String, Double> outputs;
 		final Map<String, String> placements;
 
-		GroupView(String key, ResourceLocation material, ResourceLocation domain, String mode,
-				String status, List<Candidate> candidates, Map<String, Double> outputs,
+		GroupView(String key, ResourceLocation material, ResourceLocation domain,
+				String displayName, List<String> oreDictionaryEntries, boolean curated,
+				String mode, String outputMode, String status, List<Candidate> candidates, Map<String, Double> outputs,
 				Map<String, String> placements) {
 			this.key = key;
 			this.material = material;
 			this.domain = domain;
+			this.displayName = displayName;
+			this.oreDictionaryEntries = Collections.unmodifiableList(new ArrayList<>(oreDictionaryEntries));
+			this.curated = curated;
 			this.mode = mode;
+			this.outputMode = outputMode;
 			this.status = status;
 			this.candidates = Collections.unmodifiableList(new ArrayList<>(candidates));
 			this.outputs = Collections.unmodifiableMap(new LinkedHashMap<>(outputs));
@@ -584,14 +626,16 @@ final class OreSourcePolicies {
 		final ResourceLocation channel;
 		final List<String> oreNames;
 		final boolean loaded;
+		final boolean active;
 		final boolean external;
 		final boolean enrichment;
 		final boolean reviewRequired;
+		final boolean materialDeclared;
 
 		Candidate(String sourceId, String owner, String ownerName, String ownerVersion,
 				ResourceLocation block, int metadata, ResourceLocation material, ResourceLocation domain,
-				ResourceLocation channel, List<String> oreNames, boolean loaded, boolean external,
-				boolean enrichment, boolean reviewRequired) {
+				ResourceLocation channel, List<String> oreNames, boolean loaded, boolean active,
+				boolean external, boolean enrichment, boolean reviewRequired, boolean materialDeclared) {
 			this.sourceId = sourceId;
 			this.owner = owner;
 			this.ownerName = ownerName;
@@ -603,16 +647,21 @@ final class OreSourcePolicies {
 			this.channel = channel;
 			this.oreNames = Collections.unmodifiableList(new ArrayList<>(oreNames));
 			this.loaded = loaded;
+			this.active = active;
 			this.external = external;
 			this.enrichment = enrichment;
 			this.reviewRequired = reviewRequired;
+			this.materialDeclared = materialDeclared;
 		}
 
 		String identity() { return sourceId + '|' + channel.toString(); }
 
+		String outputIdentity() { return block.toString() + '|' + metadata; }
+
 		Candidate missing() {
 			return new Candidate(sourceId, owner, ownerName, ownerVersion, block, metadata, material,
-					domain, channel, oreNames, false, external, enrichment, reviewRequired);
+					domain, channel, oreNames, false, false, external, enrichment, reviewRequired,
+					materialDeclared);
 		}
 
 		JsonObject toJson() {
@@ -630,9 +679,11 @@ final class OreSourcePolicies {
 			for (String name : oreNames) dictionary.add(new JsonPrimitive(name));
 			json.add("ore_dictionary", dictionary);
 			json.addProperty("loaded", loaded);
+			json.addProperty("placement_active", active);
 			json.addProperty("external", external);
 			json.addProperty("enrichment", enrichment);
 			json.addProperty("review_required", reviewRequired);
+			json.addProperty("material_declared", materialDeclared);
 			return json;
 		}
 	}
@@ -659,9 +710,29 @@ final class OreSourcePolicies {
 			return false;
 		}
 
-		List<Candidate> configured() {
+		List<Candidate> managed() {
 			List<Candidate> result = new ArrayList<>();
 			for (Candidate value : candidates) if (!value.external && !value.enrichment) result.add(value);
+			result.sort(CANDIDATE_ORDER);
+			return result;
+		}
+
+		List<Candidate> configured() {
+			List<Candidate> result = new ArrayList<>();
+			for (Candidate value : managed()) if (value.active) result.add(value);
+			return result;
+		}
+
+		List<Candidate> outputs() {
+			Map<String, Candidate> unique = new LinkedHashMap<>();
+			for (Candidate value : candidates) {
+				if (value.enrichment || !value.loaded) continue;
+				String key = value.outputIdentity();
+				Candidate previous = unique.get(key);
+				if (previous == null || (!previous.active && value.active)
+						|| (previous.external && !value.external)) unique.put(key, value);
+			}
+			List<Candidate> result = new ArrayList<>(unique.values());
 			result.sort(CANDIDATE_ORDER);
 			return result;
 		}
@@ -679,22 +750,22 @@ final class OreSourcePolicies {
 
 		boolean reviewRequired() {
 			for (Candidate value : candidates) if (value.reviewRequired) return true;
-			return configured().size() > 1 && !highConfidence(this);
+			return hasManagedConflict() && !highConfidence(this);
 		}
 
-		boolean needsPolicy() {
-			return configured().size() > 1 || hasExternal() || hasEnrichment()
-					|| reviewRequiredCandidate();
-		}
-
-		private boolean hasEnrichment() {
-			for (Candidate value : candidates) if (value.enrichment) return true;
+		private boolean hasManagedConflict() {
+			List<Candidate> managed = managed();
+			Set<String> outputs = new LinkedHashSet<>();
+			Map<ResourceLocation, Set<String>> ownersByChannel = new LinkedHashMap<>();
+			for (Candidate value : managed) {
+				outputs.add(value.outputIdentity());
+				if (value.active) ownersByChannel.computeIfAbsent(value.channel,
+						ignored -> new LinkedHashSet<>()).add(value.owner);
+			}
+			if (outputs.size() > 1) return true;
+			for (Set<String> owners : ownersByChannel.values()) if (owners.size() > 1) return true;
 			return false;
 		}
 
-		private boolean reviewRequiredCandidate() {
-			for (Candidate value : candidates) if (value.reviewRequired) return true;
-			return false;
-		}
 	}
 }

@@ -120,13 +120,20 @@ unambiguous. NetherMetals and EndMetals stay in their respective dimension
 domains. DenseMetals is enrichment, not an interchangeable output, and
 BaseSciences has no ordinary ore-source role.
 
-The reviewed automatic priorities are Mineralogy, then BaseMinerals, then
-ElectricAdvantage for sulfur; and BaseMinerals, then ElectricAdvantage for
-lithium. No other conflict is automatically consolidated without an explicit
-catalog row. Exact Ore Dictionary `oreX` inference recognizes the curated
+Reviewed fresh-world conflicts start Balanced with all eligible output blocks.
+Mineralogy, then BaseMinerals, then ElectricAdvantage is the initial placement
+and Single-mode priority for sulfur; BaseMinerals, then ElectricAdvantage is the
+corresponding lithium priority. No other conflict is automatically consolidated
+without an explicit catalog row. Exact Ore Dictionary `oreX` inference recognizes the curated
 sulfur/sulphur and aluminum/aluminium aliases but deliberately keeps Niter and
 Saltpeter distinct. Multiple unrelated entries are marked for review rather
 than fuzzy-matched from block names.
+
+Provider definitions that are disabled for placement remain managed
+output-only candidates. This permits a sibling mod's block to participate in a
+Balanced, Single, or Custom material group without contributing a second
+frequency budget. Duplicate rule or alias references to the same registry ID
+and metadata are displayed once.
 
 Ore Dictionary membership does not prove that OreSpawn controls a mod's native
 generator. Such candidates are displayed as external generation and are never

@@ -675,6 +675,7 @@ task clientIntegrationProcess(type: JavaExec, dependsOn: prepareClientIntegratio
                 || result.getProperty('world_settings_opened') != 'true'
                 || result.getProperty('mods_directory_rendered') != 'true'
                 || result.getProperty('directory_stack_validated') != 'true'
+                || result.getProperty('ore_sources_validated') != 'true'
                 || result.getProperty('long_editor_roundtrip') != 'true'
                 || Integer.parseInt(result.getProperty('editor_routes', '0')) < 5) {
             throw new GradleException("Client integration result is incomplete: ${marker}")
@@ -1003,10 +1004,10 @@ tasks.register('verifyReleaseConfiguration') {
             throw new GradleException('OreSpawn API major must remain 1')
         }
         if (!file('src/main/java/zone/moddev/mc/orespawn/worldgen/GeomeConfig.java')
-                .getText('UTF-8').contains('SCHEMA_VERSION = 7')
+                .getText('UTF-8').contains('SCHEMA_VERSION = 8')
                 || !file('src/main/java/zone/moddev/mc/orespawn/worldgen/WorldGeologyProfile.java')
-                .getText('UTF-8').contains('SCHEMA_VERSION = 6')) {
-            throw new GradleException('Global/world schema versions must remain 7/6')
+                .getText('UTF-8').contains('SCHEMA_VERSION = 7')) {
+            throw new GradleException('Global/world schema versions must remain 8/7')
         }
         def providerSchema = new JsonSlurper().parse(file('docs/schemas/orespawn-provider.schema.json'))
         if (!(providerSchema.properties.schema_version.enum as List).containsAll([4, 5])) {

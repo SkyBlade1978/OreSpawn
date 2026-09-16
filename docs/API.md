@@ -118,6 +118,20 @@ pattern defaults to its registered pattern-type ID. Explicit channels keep an
 ordinary vein budget independent from a region-scale deposit budget while the
 material group may still share the same selectable outputs.
 
+Provider definitions are also the authoritative managed-output inventory. A
+disabled provider ore remains available as an output-only candidate, but it
+cannot own frequency, shape or placement. This is how a sibling mod can offer
+its sulfur block without multiplying sulfur generation. Ore Dictionary-only
+third-party blocks may be selected as outputs, but OreSpawn never claims to
+disable their independent generators.
+
+Global schema 8 and world-profile schema 7 persist `ore_material_groups` and
+the output mode chosen for each policy. These are profile configuration, not
+additional public Java descriptors. Existing provider and pattern binaries
+continue to use the same API-major-1 methods. A compiled custom pattern should
+pass its stable deposit identity to `tryPlace(x, y, z, outputIdentity)` so the
+selected material output remains constant throughout a body and across chunks.
+
 Create one `BiomeRegistrar` during normal mod construction. It attaches to the
 calling mod's event bus and defers biome factories until Forge's biome registry
 event. `OreSpawnBiomes.copyAndRegister` clones a known biome without adding a

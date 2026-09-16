@@ -4,8 +4,8 @@ OreSpawn uses three JSON contracts:
 
 | File | Schema | Purpose |
 |---|---:|---|
-| `config/orespawn-worldgen.json` | 7 | Installed-pack defaults for new worlds |
-| `<world>/serverconfig/orespawn-worldgen.json` | 6 | Self-contained snapshot for one world |
+| `config/orespawn-worldgen.json` | 8 | Installed-pack defaults for new worlds |
+| `<world>/serverconfig/orespawn-worldgen.json` | 7 | Self-contained snapshot for one world |
 | `config/<modid>-orespawn.json` | 5 | Optional authoritative provider override |
 
 A provider may package schema 5 at `assets/<modid>/orespawn/provider.json`.
@@ -22,7 +22,7 @@ world. Restart after editing JSON by hand.
 
 | Field | Values | Meaning |
 |---|---|---|
-| `schema_version` | Contract-specific integer | Global 7, world 6, provider 5 |
+| `schema_version` | Contract-specific integer | Global 8, world 7, provider 5 |
 | `geology_mode` | `geome`, `legacy` | Sky/geome engine or Cyano legacy engine |
 | `place_fluid_deposits` | boolean | Master switch for configured fluid-deposit rules |
 | `manage_vanilla_ores` | boolean | Lets OreSpawn suppress and replace claimed vanilla ore features |
@@ -37,6 +37,7 @@ world. Restart after editing JSON by hand.
 | `biome_palettes` | object keyed by provider-owned rule ID | Optional native-biome overlays and surfaces |
 | `dimension_materials` | object keyed by provider-owned rule ID | Aquifer fluid, snow, and ice substitutions |
 | `ores` | object keyed by rule ID | Ore outputs and per-dimension placement |
+| `ore_material_groups` | object keyed by stable group ID | Friendly material names and exact Ore Dictionary aliases |
 | `ore_source_policies` | object keyed by material and dimension/domain | Persisted output and placement arbitration choices |
 | `fluid_deposits` | object keyed by rule ID | Provider-owned fluids and per-dimension placement |
 | `retrogen` | object | Bounded ore retrogen controls |
@@ -219,16 +220,32 @@ Saltpeter remain distinct, and ambiguous entries are marked **Review required**
 instead of being guessed. Registry, dictionary and policy work never runs in a
 chunk-generation loop.
 
-Each `ore_source_policies` key combines the canonical material with an exact
-dimension or existing dimension-selector ID. A policy stores `mode` as
-`consolidated` or `keep_separate`, selected output rule IDs with positive
-weights, and one placement-source rule ID per placement channel. Consolidation
-runs the chosen placement rule's pattern, hosts, filters, height and frequency
-once; selected candidates contribute output bundles only. Output choice is
-stable for a whole ordinary vein, and custom patterns can supply a stable body
-identity so one deposit uses one source across chunk boundaries.
+Each `ore_material_groups` entry has a persistent registry-style group ID, a
+`display_name`, and `ore_dictionary_entries`. Entries must be exact `oreX`
+names and may belong to only one group. Renaming a group does not change its
+ID. OreSpawn supplies Sulfur (`oreSulfur`, `oreSulphur`) and Aluminum
+(`oreAluminum`, `oreAluminium`) groups; Niter and Saltpeter deliberately remain
+separate. The UI can create and delete custom groups, confirm moving an alias
+from another group, or reset a curated group to its shipped defaults.
 
-New worlds consolidate only reviewed high-confidence MMD catalog conflicts.
+Each `ore_source_policies` key combines the group ID with an exact dimension or
+existing dimension-selector ID. `mode` is `consolidated` or `keep_separate`.
+Consolidated policies also store `output_mode` as `balanced`, `single`, or
+`custom`, selected output rule IDs with positive weights, and one active
+placement-source rule per placement channel. Balanced uses equal weights,
+Single has exactly one output, and Custom accepts any non-empty positively
+weighted subset. The UI calls `keep_separate` **Keep Original**.
+
+Consolidation runs the chosen placement rule's pattern, hosts, filters, height
+and frequency once; selected candidates contribute output bundles only. An
+inactive managed provider may therefore supply an output block without adding
+a placement budget. Output choice is stable for a whole ordinary vein, and
+custom patterns can supply a stable body identity so one deposit uses one
+source across chunk boundaries. External Ore Dictionary members can be chosen
+as outputs, but their independent native generators remain uncontrolled.
+
+New worlds consolidate only reviewed high-confidence MMD catalog conflicts and
+start those groups in Balanced mode with all eligible outputs selected.
 Upgraded worlds initialize discovered conflicts as `keep_separate`, preserving
 their historical placement frequency and outputs until changed through **Ore
 Sources...**. Policy edits affect newly generated chunks only and never cause
