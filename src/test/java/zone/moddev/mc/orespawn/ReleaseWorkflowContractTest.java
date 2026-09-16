@@ -104,6 +104,18 @@ class ReleaseWorkflowContractTest {
 		assertFalse(text.contains("./gradlew clean classes"));
 	}
 
+	@Test
+	void eclipseAlwaysPinsBuildshipToTheActiveJava25Runtime() throws Exception {
+		String build = new String(Files.readAllBytes(
+				Paths.get("build.gradle")), StandardCharsets.UTF_8);
+		assertTrue(build.contains("existingGradleHome = preferences.getProperty("));
+		assertTrue(build.contains("gradle.gradleUserHomeDir"));
+		assertTrue(build.contains("preferences.setProperty('java.home', System.getProperty('java.home'))"));
+		assertTrue(build.contains("JAVA_VERSION=\"25.0.3\""));
+		assertTrue(build.contains("IMPLEMENTOR=\"Eclipse Adoptium\""));
+		assertFalse(build.contains("requestedGradleHome == null || requestedGradleHome.trim().isEmpty()) {\n            return"));
+	}
+
 	private static int occurrences(String text, String needle) {
 		int count = 0;
 		int offset = 0;

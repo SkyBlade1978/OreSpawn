@@ -1073,21 +1073,20 @@ tasks.named('eclipse').configure {
     dependsOn prepareEclipseResources
     doLast {
         String requestedGradleHome = System.getenv('GRADLE_USER_HOME')
-        if (requestedGradleHome == null || requestedGradleHome.trim().isEmpty()) {
-            return
-        }
-
         File preferencesFile = file('.settings/org.eclipse.buildship.core.prefs')
         Properties preferences = new Properties()
         if (preferencesFile.isFile()) {
             preferencesFile.withInputStream { preferences.load(it) }
         }
-        String gradleHome = file(requestedGradleHome).canonicalPath
+        String existingGradleHome = preferences.getProperty('connection.gradle.user.home', '').trim()
+        File gradleHome = requestedGradleHome != null && !requestedGradleHome.trim().isEmpty()
+                ? file(requestedGradleHome)
+                : (!existingGradleHome.isEmpty() ? file(existingGradleHome) : gradle.gradleUserHomeDir)
         preferences.setProperty('eclipse.preferences.version', '1')
         preferences.setProperty('connection.gradle.distribution', 'GRADLE_DISTRIBUTION(WRAPPER)')
         preferences.setProperty('override.workspace.settings', 'true')
-        preferences.setProperty('gradle.user.home', gradleHome)
-        preferences.setProperty('connection.gradle.user.home', gradleHome)
+        preferences.setProperty('gradle.user.home', gradleHome.canonicalPath)
+        preferences.setProperty('connection.gradle.user.home', gradleHome.canonicalPath)
         preferences.setProperty('java.home', System.getProperty('java.home'))
         preferencesFile.parentFile.mkdirs()
         preferencesFile.withOutputStream {
@@ -1107,6 +1106,16 @@ tasks.register('verifyEclipseProductionClasspath') {
         prefs.withInputStream { preferences.load(it) }
         if (preferences.getProperty('override.workspace.settings') != 'true') {
             throw new GradleException('Eclipse Buildship workspace override is not active')
+        }
+        String eclipseJavaHome = preferences.getProperty('java.home', '').trim()
+        if (eclipseJavaHome.isEmpty() || !new File(eclipseJavaHome, 'release').isFile()) {
+            throw new GradleException("Eclipse Buildship Java home is missing or invalid: ${eclipseJavaHome}")
+        }
+        String eclipseJavaRelease = new File(eclipseJavaHome, 'release').getText('UTF-8')
+        if (!eclipseJavaRelease.contains('JAVA_VERSION="25.0.3"')
+                || !eclipseJavaRelease.contains('IMPLEMENTOR="Eclipse Adoptium"')) {
+            throw new GradleException(
+                    "Eclipse Buildship must use exact Temurin 25.0.3+9: ${eclipseJavaHome}")
         }
         File eclipseClasspath = file('.classpath')
         if (!eclipseClasspath.isFile()) throw new GradleException('Eclipse .classpath was not generated')
