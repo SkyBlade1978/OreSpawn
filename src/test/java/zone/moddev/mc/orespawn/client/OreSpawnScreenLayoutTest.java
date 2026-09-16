@@ -39,7 +39,7 @@ class OreSpawnScreenLayoutTest {
 		int backgroundAndWidgets = source.indexOf("super.extractRenderState(graphics", render);
 		int foreground = source.indexOf("renderForeground(graphics", render);
 		assertTrue(render >= 0 && backgroundAndWidgets > render && foreground > backgroundAndWidgets,
-				"The 26.2 Screen render pass must finish before OreSpawn foreground text");
+				"The 26.3 Screen render pass must finish before OreSpawn foreground text");
 	}
 
 	@Test

@@ -56,6 +56,10 @@ public final class OreSpawnBiomeModifier implements BiomeModifier {
 		List<Holder<PlacedFeature>> top =
 				generation.getFeatures(GenerationStep.Decoration.TOP_LAYER_MODIFICATION);
 		changed |= addUnique(top, FlatBedrockFeature.placedFeature());
+
+		List<Holder<PlacedFeature>> springs =
+				generation.getFeatures(GenerationStep.Decoration.FLUID_SPRINGS);
+		changed |= VanillaSpringCompatibility.wrapFeatureList(springs);
 		return changed;
 	}
 

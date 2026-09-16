@@ -1,9 +1,9 @@
 {
   "pack": {
     "description": "OreSpawn client qualification fixture",
-    "max_format": 107,
+    "max_format": 121,
     "min_format": [
-      107,
+      97,
       1
     ]
   }

@@ -84,7 +84,7 @@ exclusions. These methods work on both explicit `.dimension(...)` rules and
 `.dimensionSelector(...)` fallbacks; built definitions and their returned
 filter sets are immutable.
 
-Minecraft 26.2 biomes are data-driven registry entries. Package biome JSON under
+Minecraft 26.3 biomes are data-driven registry entries. Package biome JSON under
 `data/<modid>/worldgen/biome/`, or generate it with a
 `DatapackBuiltinEntriesProvider`. `OreSpawnBiomes.copyAndRegister` is an
 optional bootstrap/datagen convenience for cloning a known biome:

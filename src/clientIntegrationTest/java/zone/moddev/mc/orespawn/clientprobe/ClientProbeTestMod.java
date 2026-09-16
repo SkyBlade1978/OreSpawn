@@ -228,7 +228,7 @@ public final class ClientProbeTestMod {
 
 	private static void validateCaptions(Screen screen) {
 		for (AbstractWidget widget : widgets(screen)) {
-			// Minecraft 26.2's create-world menu uses an empty-captioned composite
+			// Minecraft 26.3's create-world menu uses an empty-captioned composite
 			// container; its visible tab controls are checked independently.
 			if (widget instanceof MenuTabBar) continue;
 			String caption = ChatFormatting.stripFormatting(widget.getMessage().getString());
@@ -504,7 +504,7 @@ public final class ClientProbeTestMod {
 	}
 
 	private static void stopIntegratedServer(Minecraft minecraft) {
-		// Minecraft 26.2 waits for its integrated server after closing the client
+		// Minecraft 26.3 waits for its integrated server after closing the client
 		// connection. Stop it first so the fixture neither double-closes the local
 		// channel nor waits forever for a server that still considers itself running.
 		if (minecraft.getSingleplayerServer() != null) {
@@ -528,7 +528,7 @@ public final class ClientProbeTestMod {
 		values.setProperty("reload_rendered", Boolean.toString(reloadWorldFrames >= 8));
 		values.setProperty("world_directory", WORLD_DIRECTORY);
 		try (FileOutputStream output = new FileOutputStream(new File("client-smoke-pass.properties"))) {
-			values.store(output, "OreSpawn NeoForge 26.2 client integration gate");
+			values.store(output, "OreSpawn NeoForge 26.3 client integration gate");
 		}
 	}
 

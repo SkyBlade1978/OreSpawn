@@ -6,9 +6,6 @@ version="1"
 displayName="OreSpawn Surface Integration Test"
 description='''Test-only provider mod for OreSpawn's surface replacement gate.'''
 
-[[mixins]]
-config="surfaceprobe.mixins.json"
-
 [[dependencies.surfaceprobe]]
 modId="orespawn"
 type="required"
@@ -19,6 +16,6 @@ side="BOTH"
 [[dependencies.surfaceprobe]]
 modId="minecraft"
 type="required"
-versionRange="[26.2]"
+versionRange="[26.3]"
 ordering="NONE"
 side="BOTH"

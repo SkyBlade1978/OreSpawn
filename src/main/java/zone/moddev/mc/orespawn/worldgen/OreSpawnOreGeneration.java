@@ -15,6 +15,7 @@ import java.util.Set;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.mojang.serialization.MapCodec;
 import zone.moddev.mc.orespawn.OreSpawn;
 import zone.moddev.mc.orespawn.api.CompiledOrePattern;
 import zone.moddev.mc.orespawn.api.OreDimensionSelector;
@@ -38,20 +39,21 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.feature.Feature;
-import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
-import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
 import net.minecraft.world.level.material.Fluid;
+import net.minecraft.util.RandomSource;
 import net.minecraft.core.registries.BuiltInRegistries;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /** One dynamic feature for every OreSpawn-managed ore and dimension. */
-public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguration> {
+public final class OreSpawnOreGeneration implements Feature {
 	private static final Logger LOGGER = LogManager.getLogger();
 	public static final OreSpawnOreGeneration FEATURE = new OreSpawnOreGeneration();
+	public static final MapCodec<OreSpawnOreGeneration> CODEC = MapCodec.unit(FEATURE);
 	private static final BakedOre[] NO_ORES = new BakedOre[0];
 	private static final Map<ResourceKey<Level>, BakedOre[]> EMPTY_DIMENSIONS = Collections.emptyMap();
 	private static final Object CLASSIFIER_LOCK = new Object();
@@ -68,7 +70,6 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 			ThreadLocal.withInitial(GenerationScratch::new);
 
 	private OreSpawnOreGeneration() {
-		super(NoneFeatureConfiguration.CODEC);
 	}
 
 	public static void registerConfiguredFeatures() {
@@ -97,19 +98,24 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 	}
 
 	@Override
-	public boolean place(FeaturePlaceContext<NoneFeatureConfiguration> context) {
-		WorldGenLevel world = context.level();
+	public MapCodec<OreSpawnOreGeneration> codec() {
+		return CODEC;
+	}
+
+	@Override
+	public boolean place(WorldGenLevel world, ChunkGenerator chunkGenerator,
+			RandomSource randomSource, BlockPos origin) {
 		ResourceKey<Level> dimension = world.getLevel().dimension();
 		BakedOre[] ores = oresForDimension(dimension);
 		if (ores.length == 0) {
 			return false;
 		}
 
-		ChunkAccess chunk = world.getChunk(context.origin());
+		ChunkAccess chunk = world.getChunk(origin);
 		GenerationScratch scratch = GENERATION_SCRATCH.get();
 		setCenter(scratch.cursor, chunk);
 		boolean changed = generateChunk(world, chunk, world.getBiome(scratch.cursor), dimension,
-				world.getSeed(), scratch.randomSource.wrap(context.random()), ores, false, scratch);
+				world.getSeed(), scratch.randomSource.wrap(randomSource), ores, false, scratch);
 		OreRetrogenManager.markGenerated(dimension, chunk.getPos());
 		return changed;
 	}

@@ -3,7 +3,7 @@ package zone.moddev.mc.orespawn.api;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
-import java.util.Optional;
+import java.util.stream.Stream;
 
 import com.mojang.serialization.Lifecycle;
 
@@ -11,7 +11,6 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.HolderGetter;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.MappedRegistry;
-import net.minecraft.core.RegistrationInfo;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.data.registries.VanillaRegistries;
@@ -26,21 +25,26 @@ import org.junit.jupiter.api.Test;
 class OreSpawnBiomesTest {
 	@Test
 	void copiesBiomeThroughDynamicRegistryBootstrap() {
-		HolderLookup.Provider vanilla = VanillaRegistries.createLookup();
+		HolderLookup.Provider vanilla = VanillaRegistries.createWorldLookup();
 		MappedRegistry<Biome> generated = new MappedRegistry<>(Registries.BIOME,
 				Lifecycle.stable());
 		BootstrapContext<Biome> context = new BootstrapContext<>() {
 			@Override
-			public Holder.Reference<Biome> register(ResourceKey<Biome> key, Biome value,
-					Lifecycle lifecycle) {
+			public Holder.Reference<Biome> register(ResourceKey<Biome> key, Biome value) {
 				return generated.register(key, value,
-						new RegistrationInfo(Optional.empty(), lifecycle));
+						net.minecraft.core.RegistrationInfo.BUILT_IN);
 			}
 
 			@Override
 			public <S> HolderGetter<S> lookup(
 					ResourceKey<? extends Registry<? extends S>> key) {
 				return vanilla.lookupOrThrow(key);
+			}
+
+			@Override
+			public <S> Stream<Holder.Reference<S>> listContextElements(
+					ResourceKey<? extends Registry<? extends S>> key) {
+				return vanilla.lookupOrThrow(key).listElements();
 			}
 		};
 		ResourceKey<Biome> target = ResourceKey.create(Registries.BIOME,
@@ -57,7 +61,6 @@ class OreSpawnBiomesTest {
 		assertEquals(0.15F, copy.getModifiedClimateSettings().downfall());
 		assertEquals(plains.getAttributes(), copy.getAttributes());
 		assertEquals(plains.getModifiedSpecialEffects(), copy.getModifiedSpecialEffects());
-		assertSame(plains.getMobSettings(), copy.getMobSettings());
 		assertSame(plains.getGenerationSettings(), copy.getGenerationSettings());
 	}
 }

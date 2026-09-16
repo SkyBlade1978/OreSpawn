@@ -1059,7 +1059,7 @@ final class GeologyEditorSession {
 			return true;
 		}
 		return !(block instanceof EntityBlock)
-				&& block.defaultBlockState().blocksMotion()
+				&& block.defaultBlockState().isSolidRender()
 				&& Block.isShapeFullBlock(block.defaultBlockState().getCollisionShape(
 						EmptyBlockGetter.INSTANCE, BlockPos.ZERO));
 	}

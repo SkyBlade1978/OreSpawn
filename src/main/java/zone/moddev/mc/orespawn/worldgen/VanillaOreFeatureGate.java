@@ -1,24 +1,26 @@
 package zone.moddev.mc.orespawn.worldgen;
 
-import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import zone.moddev.mc.orespawn.OreSpawn;
 
 import net.minecraft.core.Holder;
 import net.minecraft.resources.Identifier;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
 import net.minecraft.world.level.levelgen.feature.Feature;
-import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
-import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
-import net.minecraft.world.level.levelgen.feature.configurations.FeatureConfiguration;
+import net.minecraft.world.level.levelgen.feature.OreFeature;
+import net.minecraft.world.level.levelgen.feature.ScatteredOreFeature;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
+import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -33,8 +35,6 @@ import org.apache.logging.log4j.Logger;
 public final class VanillaOreFeatureGate {
 	private static final Logger LOGGER = LogManager.getLogger();
 	private static final Definition[] DEFINITIONS = definitions();
-	private static final GateFeature[] FEATURES = features();
-	private static final SuppressibleGateFeature SUPPRESSIBLE_FEATURE = new SuppressibleGateFeature();
 	private static final Map<Identifier, Holder<PlacedFeature>> VANILLA_GATES =
 			new LinkedHashMap<>();
 	private static final Map<PlacedFeature, Holder<PlacedFeature>> SUPPRESSIBLE_GATES =
@@ -43,13 +43,10 @@ public final class VanillaOreFeatureGate {
 	private VanillaOreFeatureGate() {
 	}
 
-	public static void registerFeatures(DeferredRegister<Feature<?>> registry) {
-		for (int i = 0; i < FEATURES.length; i++) {
-			final int index = i;
-			registry.register("vanilla_ore_gate_" + DEFINITIONS[i].placedFeatureId.getPath(),
-					() -> FEATURES[index]);
-		}
-		registry.register("suppressible_ore_gate", () -> SUPPRESSIBLE_FEATURE);
+	public static void registerFeatures(
+			DeferredRegister<MapCodec<? extends Feature>> registry) {
+		registry.register("vanilla_ore_gate", () -> GateFeature.CODEC);
+		registry.register("suppressible_ore_gate", () -> SuppressibleGateFeature.CODEC);
 	}
 
 	static boolean wrapFeatureList(List<Holder<PlacedFeature>> features) {
@@ -84,19 +81,15 @@ public final class VanillaOreFeatureGate {
 					definition.placedFeatureId);
 			return null;
 		}
-		GateFeature feature = FEATURES[definitionIndex];
-		feature.initialize(original.value().feature(), output);
-		Holder<ConfiguredFeature<?, ?>> configured = Holder.direct(
-				new ConfiguredFeature<NoneFeatureConfiguration, GateFeature>(
-						feature, NoneFeatureConfiguration.INSTANCE));
-		return Holder.direct(new PlacedFeature(configured, original.value().placement()));
+		GateFeature feature = new GateFeature(original.value().feature(), output);
+		return Holder.direct(new PlacedFeature(Holder.direct(feature),
+				original.value().placement()));
 	}
 
 	private static Holder<PlacedFeature> suppressibleGate(Holder<PlacedFeature> original) {
-		Holder<ConfiguredFeature<?, ?>> configured = Holder.direct(
-				new ConfiguredFeature<SuppressibleConfig, SuppressibleGateFeature>(
-						SUPPRESSIBLE_FEATURE, new SuppressibleConfig(original.value().feature())));
-		return Holder.direct(new PlacedFeature(configured, original.value().placement()));
+		return Holder.direct(new PlacedFeature(
+				Holder.direct(new SuppressibleGateFeature(original.value().feature())),
+				original.value().placement()));
 	}
 
 	private static int definitionIndex(Identifier id) {
@@ -108,8 +101,8 @@ public final class VanillaOreFeatureGate {
 	}
 
 	private static boolean isStandardOreFeature(PlacedFeature placed) {
-		return placed.getFeatures().anyMatch(configured -> configured.value().feature() == Feature.ORE
-				|| configured.value().feature() == Feature.SCATTERED_ORE);
+		return placed.getFeatures().anyMatch(feature -> feature.value() instanceof OreFeature
+				|| feature.value() instanceof ScatteredOreFeature);
 	}
 
 	private static Definition[] definitions() {
@@ -141,68 +134,65 @@ public final class VanillaOreFeatureGate {
 		};
 	}
 
-	private static GateFeature[] features() {
-		GateFeature[] result = new GateFeature[DEFINITIONS.length];
-		for (int i = 0; i < result.length; i++) {
-			result[i] = new GateFeature();
-		}
-		return result;
-	}
-
 	private static Definition definition(String placedFeature, String block) {
 		return new Definition(Identifier.fromNamespaceAndPath("minecraft", placedFeature),
 				Identifier.fromNamespaceAndPath("minecraft", block));
 	}
 
-	private static final class GateFeature extends Feature<NoneFeatureConfiguration> {
-		private Holder<ConfiguredFeature<?, ?>> original;
-		private Block output;
+	private static final class GateFeature implements Feature {
+		static final MapCodec<GateFeature> CODEC = RecordCodecBuilder.mapCodec(instance ->
+				instance.group(
+						Feature.CODEC.fieldOf("delegate").forGetter(value -> value.original),
+						BuiltInRegistries.BLOCK.byNameCodec().fieldOf("output")
+								.forGetter(value -> value.output))
+						.apply(instance, GateFeature::new));
+		private final Holder<Feature> original;
+		private final Block output;
 
-		GateFeature() {
-			super(NoneFeatureConfiguration.CODEC);
-		}
-
-		void initialize(Holder<ConfiguredFeature<?, ?>> original, Block output) {
+		GateFeature(Holder<Feature> original, Block output) {
 			this.original = original;
 			this.output = output;
 		}
 
 		@Override
-		public boolean place(FeaturePlaceContext<NoneFeatureConfiguration> context) {
+		public MapCodec<GateFeature> codec() {
+			return CODEC;
+		}
+
+		@Override
+		public boolean place(WorldGenLevel world, ChunkGenerator chunkGenerator,
+				RandomSource random, BlockPos origin) {
 			if (WorldGeologyProfileManager.activeProfile().suppressAllOreFeatures()) {
 				return false;
 			}
 			if (OreSpawnOreGeneration.takesOverVanillaOre(
-					context.level().getLevel().dimension(), output)) {
+					world.getLevel().dimension(), output)) {
 				return false;
 			}
-			return original.value().place(context.level(), context.chunkGenerator(),
-					context.random(), context.origin());
+			return original.value().place(world, chunkGenerator, random, origin);
 		}
 	}
 
-	private static final class SuppressibleConfig implements FeatureConfiguration {
-		static final Codec<SuppressibleConfig> CODEC = ConfiguredFeature.CODEC
+	private static final class SuppressibleGateFeature implements Feature {
+		static final MapCodec<SuppressibleGateFeature> CODEC = Feature.CODEC
 				.fieldOf("delegate")
-				.xmap(SuppressibleConfig::new, value -> value.delegate)
-				.codec();
-		final Holder<ConfiguredFeature<?, ?>> delegate;
+				.xmap(SuppressibleGateFeature::new, value -> value.delegate);
+		final Holder<Feature> delegate;
 
-		SuppressibleConfig(Holder<ConfiguredFeature<?, ?>> delegate) {
+		SuppressibleGateFeature(Holder<Feature> delegate) {
 			this.delegate = delegate;
-		}
-	}
-
-	private static final class SuppressibleGateFeature extends Feature<SuppressibleConfig> {
-		SuppressibleGateFeature() {
-			super(SuppressibleConfig.CODEC);
 		}
 
 		@Override
-		public boolean place(FeaturePlaceContext<SuppressibleConfig> context) {
+		public MapCodec<SuppressibleGateFeature> codec() {
+			return CODEC;
+		}
+
+		@Override
+		public boolean place(WorldGenLevel world, ChunkGenerator chunkGenerator,
+				RandomSource random, BlockPos origin) {
 			if (WorldGeologyProfileManager.activeProfile().suppressAllOreFeatures()) return false;
-			return context.config().delegate.value().place(context.level(), context.chunkGenerator(),
-					context.random(), context.origin());
+			return delegate.value().place(world, chunkGenerator, random, origin);
 		}
 	}
 

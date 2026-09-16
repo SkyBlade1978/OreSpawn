@@ -13,6 +13,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.serialization.MapCodec;
 
 import zone.moddev.mc.orespawn.api.BiomePlacementMode;
 import zone.moddev.mc.orespawn.api.BiomeRegionSize;
@@ -48,8 +49,8 @@ import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.levelgen.FlatLevelSource;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.feature.Feature;
-import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
-import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
+import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
@@ -69,8 +70,8 @@ public final class SurfaceProbeTestMod {
 	static final String MODID = "surfaceprobe";
 
 	private static final Logger LOGGER = LogManager.getLogger();
-	private static final DeferredRegister<Feature<?>> FEATURES =
-			DeferredRegister.create(BuiltInRegistries.FEATURE, MODID);
+	private static final DeferredRegister<MapCodec<? extends Feature>> FEATURES =
+			DeferredRegister.create(BuiltInRegistries.FEATURE_TYPE, MODID);
 	private static final ResourceKey<Level> OPEN = Level.END;
 	private static final ResourceKey<Level> ROOFED = Level.NETHER;
 	private static final Identifier OPEN_ID = Identifier.parse("minecraft:the_end");
@@ -110,9 +111,9 @@ public final class SurfaceProbeTestMod {
 	private static final BlockState WEATHER_ICE_REPLACEMENT = Blocks.BLUE_ICE.defaultBlockState();
 
 	static {
-		FEATURES.register("terrain_setup", () -> new ProbeFeature(ProbeStage.TERRAIN));
-		FEATURES.register("structure_sentinels", () -> new ProbeFeature(ProbeStage.STRUCTURE));
-		FEATURES.register("vegetation_sentinels", () -> new ProbeFeature(ProbeStage.VEGETATION));
+		FEATURES.register("terrain_setup", () -> ProbeFeature.TERRAIN_CODEC);
+		FEATURES.register("structure_sentinels", () -> ProbeFeature.STRUCTURE_CODEC);
+		FEATURES.register("vegetation_sentinels", () -> ProbeFeature.VEGETATION_CODEC);
 	}
 
 	public SurfaceProbeTestMod(IEventBus modBus) {
@@ -128,7 +129,10 @@ public final class SurfaceProbeTestMod {
 		provider.ore(DYNAMIC_ORE, blockId(Blocks.DIAMOND_BLOCK), ore -> ore
 				.retrogen(false)
 				.dimension(OPEN_ID, placement -> placement
-						.yRange(16, 48)
+						// Keep the filter probe below the deterministic surface-geology sentinel
+						// band. Minecraft 26.3 changed the placement RNG sequence, so the older
+						// broad range could legitimately replace one of those audit sentinels.
+						.yRange(16, 24)
 						.attempts(16.0D)
 						.quantity(8)
 						.pattern(OrePattern.CLUSTER)
@@ -332,6 +336,7 @@ public final class SurfaceProbeTestMod {
 
 		LOGGER.info("SURFACEPROBE PASS phase={} open={} roofed={}",
 				phase, results.get("open"), results.get("roofed"));
+		event.getServer().halt(false);
 	}
 
 	private static ServerLevel requireLevel(ServerStartedEvent event, ResourceKey<Level> key) {
@@ -372,23 +377,25 @@ public final class SurfaceProbeTestMod {
 		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 
 		for (int chunkZ = MINIMUM_CHUNK; chunkZ <= MAXIMUM_CHUNK; chunkZ++) {
-			Identifier previousChunkBiome = null;
 			for (int chunkX = MINIMUM_CHUNK; chunkX <= MAXIMUM_CHUNK; chunkX++) {
 				level.getChunk(chunkX, chunkZ, ChunkStatus.FULL, true);
 				LevelChunk chunk = level.getChunk(chunkX, chunkZ);
 				int chunkMinX = chunkX << 4;
 				int chunkMinZ = chunkZ << 4;
-				int centerGroundY = findMarkedGround(chunk, pos, chunkMinX + 8, chunkMinZ + 8,
-						level.getMinY(), level.getMaxY());
-				Identifier generationBiomeId = biomeId(level.getBiome(
-						pos.set(chunkMinX + 8, centerGroundY, chunkMinZ + 8)));
+				Identifier[] previousRowBiomes = new Identifier[16];
 				for (int localZ = 0; localZ < 16; localZ++) {
+					Identifier previousColumnBiome = null;
 					for (int localX = 0; localX < 16; localX++) {
 						int x = chunkMinX + localX;
 						int z = chunkMinZ + localZ;
 						int groundY = findMarkedGround(chunk, pos, x, z, level.getMinY(), level.getMaxY());
 						var biome = level.getBiome(pos.set(x, groundY, z));
 						Identifier biomeId = biomeId(biome);
+						if (previousColumnBiome != null && !previousColumnBiome.equals(biomeId)) edgeChanges++;
+						if (previousRowBiomes[localX] != null
+								&& !previousRowBiomes[localX].equals(biomeId)) edgeChanges++;
+						previousColumnBiome = biomeId;
+						previousRowBiomes[localX] = biomeId;
 						Material material = material(biomeId, roofed);
 						float expectedTemperature = BIOME_A.equals(biomeId) ? 1.35F : 0.7F;
 						float expectedDownfall = BIOME_A.equals(biomeId) ? 0.15F : 0.8F;
@@ -436,8 +443,6 @@ public final class SurfaceProbeTestMod {
 						}
 					}
 				}
-				if (previousChunkBiome != null && !previousChunkBiome.equals(generationBiomeId)) edgeChanges++;
-				previousChunkBiome = generationBiomeId;
 				sentinels += auditSentinels(level, chunk, pos, chunkMinX, chunkMinZ);
 				if (!roofed) {
 					NaturalSourceAudit natural = auditNaturalSources(level, chunk, pos,
@@ -699,7 +704,7 @@ public final class SurfaceProbeTestMod {
 			}
 		}
 		if (water == 0L) {
-			throw new IllegalStateException("NeoForge 26.2 dynamic fluid deposit produced no covered flowing-water blocks");
+			throw new IllegalStateException("NeoForge 26.3 dynamic fluid deposit produced no covered flowing-water blocks");
 		}
 		return water;
 	}
@@ -843,18 +848,32 @@ public final class SurfaceProbeTestMod {
 
 	private enum ProbeStage { TERRAIN, STRUCTURE, VEGETATION }
 
-	private static final class ProbeFeature extends Feature<NoneFeatureConfiguration> {
+	private static final class ProbeFeature implements Feature {
+		private static final ProbeFeature TERRAIN = new ProbeFeature(ProbeStage.TERRAIN);
+		private static final ProbeFeature STRUCTURE = new ProbeFeature(ProbeStage.STRUCTURE);
+		private static final ProbeFeature VEGETATION = new ProbeFeature(ProbeStage.VEGETATION);
+		private static final MapCodec<ProbeFeature> TERRAIN_CODEC = MapCodec.unit(TERRAIN);
+		private static final MapCodec<ProbeFeature> STRUCTURE_CODEC = MapCodec.unit(STRUCTURE);
+		private static final MapCodec<ProbeFeature> VEGETATION_CODEC = MapCodec.unit(VEGETATION);
 		private final ProbeStage stage;
 
 		private ProbeFeature(ProbeStage stage) {
-			super(NoneFeatureConfiguration.CODEC);
 			this.stage = stage;
 		}
 
 		@Override
-		public boolean place(FeaturePlaceContext<NoneFeatureConfiguration> context) {
-			WorldGenLevel world = context.level();
-			ChunkAccess chunk = world.getChunk(context.origin());
+		public MapCodec<ProbeFeature> codec() {
+			return switch (stage) {
+				case TERRAIN -> TERRAIN_CODEC;
+				case STRUCTURE -> STRUCTURE_CODEC;
+				case VEGETATION -> VEGETATION_CODEC;
+			};
+		}
+
+		@Override
+		public boolean place(WorldGenLevel world, ChunkGenerator chunkGenerator,
+				RandomSource random, BlockPos origin) {
+			ChunkAccess chunk = world.getChunk(origin);
 			return switch (stage) {
 				case TERRAIN -> prepareTerrain(world, chunk);
 				case STRUCTURE -> placeStructureSentinels(world, chunk);

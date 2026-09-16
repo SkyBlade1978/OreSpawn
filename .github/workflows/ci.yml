@@ -1,19 +1,19 @@
-name: OreSpawn 26.2 NeoForge CI
+name: OreSpawn 26.3 NeoForge CI
 
 on:
   push:
     branches:
-      - master-26.2-neo
+      - master-26.3-neo
       - 'feature/**'
   pull_request:
     branches:
-      - master-26.2-neo
+      - master-26.3-neo
 
 permissions:
   contents: read
 
 concurrency:
-  group: orespawn-26.2-neo-${{ github.workflow }}-${{ github.ref }}
+  group: orespawn-26.3-neo-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -76,20 +76,20 @@ jobs:
       - name: Upload audited release candidate
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: OreSpawn-26.2-neoforge-${{ github.sha }}
+          name: OreSpawn-26.3-neoforge-${{ github.sha }}
           if-no-files-found: error
           retention-days: 30
           path: |
-            build/libs/OreSpawn-4.0.16.2602002.jar
-            build/libs/OreSpawn-4.0.16.2602002-sources.jar
-            build/libs/OreSpawn-4.0.16.2602002-javadoc.jar
+            build/libs/OreSpawn-4.0.16.2603002.jar
+            build/libs/OreSpawn-4.0.16.2603002-sources.jar
+            build/libs/OreSpawn-4.0.16.2603002-javadoc.jar
             build/release/SHA256SUMS
             CHANGELOG.txt
       - name: Upload diagnostics on failure
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: OreSpawn-26.2-neoforge-diagnostics-${{ github.sha }}
+          name: OreSpawn-26.3-neoforge-diagnostics-${{ github.sha }}
           if-no-files-found: ignore
           retention-days: 14
           path: |

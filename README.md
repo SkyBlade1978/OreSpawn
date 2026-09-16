@@ -3,9 +3,9 @@
 [![Discord](https://img.shields.io/discord/303440391124942858?label=Discord&logo=discord)](https://discord.moddev.zone)
 [![CurseForge downloads](https://cf.way2muchnoise.eu/full_245586_downloads.svg)](https://www.curseforge.com/minecraft/mc-mods/orespawn)
 [![Minecraft](https://cf.way2muchnoise.eu/versions/245586.svg)](https://www.curseforge.com/minecraft/mc-mods/orespawn/files)
-[![CI](https://github.com/MinecraftModDevelopmentMods/OreSpawn/actions/workflows/ci.yml/badge.svg?branch=master-26.2-neo)](https://github.com/MinecraftModDevelopmentMods/OreSpawn/actions/workflows/ci.yml?query=branch%3Amaster-26.2-neo)
+[![CI](https://github.com/MinecraftModDevelopmentMods/OreSpawn/actions/workflows/ci.yml/badge.svg?branch=master-26.3-neo)](https://github.com/MinecraftModDevelopmentMods/OreSpawn/actions/workflows/ci.yml?query=branch%3Amaster-26.3-neo)
 
-OreSpawn 4 is a provider-driven world-generation engine for Minecraft 26.2.
+OreSpawn 4 is a provider-driven world-generation engine for Minecraft 26.3.
 It gives mods and modpacks one place to configure ores, deposit shapes, optional
 rock strata and geomes, provider-owned underground fluid deposits, biome
 palettes and world materials, flat bedrock, and bounded ore retrogen.
@@ -94,10 +94,10 @@ exported to `config/orespawn-guide/` without overwriting existing files.
 
 ## Building
 
-This branch builds target-qualified version `4.0.16.2602002`: the OreSpawn 4.0.16
-feature set for Minecraft 26.2 and NeoForge.
+This branch builds target-qualified version `4.0.16.2603002`: the OreSpawn 4.0.16
+feature set for Minecraft 26.3 and NeoForge.
 
-OreSpawn 4.0.16.2602002 uses NeoGradle 7.1.38 and Gradle 9.2.1. Use exact
+OreSpawn 4.0.16.2603002 uses NeoGradle 7.1.39 and Gradle 9.2.1. Use exact
 Temurin 25.0.3+9 from the repository root:
 
 ```powershell
@@ -117,7 +117,7 @@ Import or refresh the project with Eclipse Buildship. NeoGradle supplies the
 Eclipse model and run configurations through the `eclipse` task; this branch
 does not use ForgeGradle's `genEclipseRuns` task.
 
-The audited public outputs are `OreSpawn-4.0.16.2602002.jar`, its sources jar,
+The audited public outputs are `OreSpawn-4.0.16.2603002.jar`, its sources jar,
 and its Javadoc jar. CI additionally proves a cache-cold NeoGradle bootstrap
 and a same-cache offline rerun.
 
