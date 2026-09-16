@@ -5,6 +5,9 @@ Version 4.0.16.2603002
 * Adapt OreSpawn's runtime world-generation features, feature gates, biome
   resolvers and spring-host compatibility to Minecraft 26.3's immutable
   feature model while preserving generation stages and profile behaviour.
+* Preserve the shared identity of vanilla spring features across biomes so
+  their decoration seeds and fixed-seed coordinates remain unchanged while
+  OreSpawn geology blocks are accepted as additional spring hosts.
 
 * Leave benchmark shutdown to the GameTest harness when a benchmark is run
   through Minecraft's GameTest server, preventing a null test-tracker crash and

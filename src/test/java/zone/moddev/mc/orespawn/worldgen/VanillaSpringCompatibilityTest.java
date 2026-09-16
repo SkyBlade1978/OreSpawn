@@ -1,20 +1,52 @@
 package zone.moddev.mc.orespawn.worldgen;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.biome.FeatureSorter;
 import net.minecraft.world.level.levelgen.feature.SpringFeature;
+import net.minecraft.world.level.levelgen.placement.PlacedFeature;
 import net.minecraft.world.level.material.Fluids;
 
 class VanillaSpringCompatibilityTest {
+	@Test
+	void sharedVanillaSpringUsesOneWrapperAcrossBiomeLists() {
+		SpringFeature spring = new SpringFeature(
+				Fluids.WATER.defaultFluidState(), true, 4, 1,
+				HolderSet.direct(Blocks.STONE.builtInRegistryHolder()));
+		PlacedFeature vanilla = new PlacedFeature(Holder.direct(spring), Collections.emptyList());
+		List<Holder<PlacedFeature>> firstBiome = new ArrayList<>(
+				Collections.singletonList(Holder.direct(vanilla)));
+		List<Holder<PlacedFeature>> secondBiome = new ArrayList<>(
+				Collections.singletonList(Holder.direct(vanilla)));
+		List<FeatureSorter.StepFeatureData> vanillaSteps = FeatureSorter.buildFeaturesPerStep(
+				Arrays.asList(firstBiome, secondBiome),
+				features -> Collections.singletonList(HolderSet.direct(features)), false);
+
+		assertTrue(VanillaSpringCompatibility.wrapFeatureList(firstBiome));
+		assertTrue(VanillaSpringCompatibility.wrapFeatureList(secondBiome));
+		assertSame(firstBiome.get(0), secondBiome.get(0));
+		assertSame(firstBiome.get(0).value(), secondBiome.get(0).value());
+
+		List<FeatureSorter.StepFeatureData> wrappedSteps = FeatureSorter.buildFeaturesPerStep(
+				Arrays.asList(firstBiome, secondBiome),
+				features -> Collections.singletonList(HolderSet.direct(features)), false);
+		assertEquals(vanillaSteps.get(0).features().size(),
+				wrappedSteps.get(0).features().size());
+	}
+
 	@Test
 	void configuredRocksExtendVanillaSpringHostsWithoutDuplicates() {
 		HolderSet<Block> original = HolderSet.direct(

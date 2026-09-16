@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import com.mojang.serialization.MapCodec;
@@ -27,6 +28,8 @@ import net.minecraft.world.level.levelgen.placement.PlacedFeature;
  */
 public final class VanillaSpringCompatibility {
 	private static volatile HolderSet<Block> additionalHosts = HolderSet.direct();
+	private static final Map<PlacedFeature, Holder<PlacedFeature>> WRAPPED_FEATURES =
+			new IdentityHashMap<>();
 
 	private VanillaSpringCompatibility() {
 		throw new IllegalAccessError("Not an instantiable class");
@@ -44,17 +47,24 @@ public final class VanillaSpringCompatibility {
 
 	static synchronized void clear(RegistryAccess registries) {
 		additionalHosts = HolderSet.direct();
+		WRAPPED_FEATURES.clear();
 	}
 
-	static boolean wrapFeatureList(List<Holder<PlacedFeature>> features) {
+	static synchronized boolean wrapFeatureList(List<Holder<PlacedFeature>> features) {
 		boolean changed = false;
 		for (int index = 0; index < features.size(); index++) {
 			Holder<PlacedFeature> placedHolder = features.get(index);
 			PlacedFeature placed = placedHolder.value();
 			Feature feature = placed.feature().value();
 			if (feature instanceof SpringFeature spring) {
-				features.set(index, Holder.direct(new PlacedFeature(
-						Holder.direct(new SpringHostFeature(spring)), placed.placement())));
+				// Minecraft 26.3 indexes placed features by reference identity when it
+				// assigns decoration seeds. Vanilla shares one registered spring value
+				// across biomes, so its replacement must be shared in exactly the same
+				// way or vanilla spring coordinates move with the same world seed.
+				Holder<PlacedFeature> wrapped = WRAPPED_FEATURES.computeIfAbsent(placed,
+						ignored -> Holder.direct(new PlacedFeature(
+								Holder.direct(new SpringHostFeature(spring)), placed.placement())));
+				features.set(index, wrapped);
 				changed = true;
 			}
 		}
