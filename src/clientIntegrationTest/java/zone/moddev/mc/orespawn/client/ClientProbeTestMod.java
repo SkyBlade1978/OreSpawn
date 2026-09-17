@@ -296,27 +296,44 @@ public final class ClientProbeTestMod {
 		int contentWidth = OreSourceListScreen.contentWidth(426);
 		int left = (426 - contentWidth) / 2;
 		int right = left + OreSourceListScreen.leftPaneWidth(426) + 6;
-		boolean sulfurName = false;
-		boolean sulfur = false;
-		boolean sulphur = false;
-		boolean mineralogy = false;
-		boolean electric = false;
+		boolean groupList = false;
+		boolean outputList = false;
+		boolean inlineAdministration = false;
 		boolean back = false;
 		for (GuiButton widget : screen.buttons) {
 			String caption = TextFormatting.getTextWithoutFormattingCodes(widget.displayString);
-			if (widget instanceof TextFieldWidget && "Sulfur".equals(((TextFieldWidget) widget).getValue())
-					&& widget.xPosition < right) sulfurName = true;
-			if ("oreSulfur".equals(caption) && widget.xPosition < right) sulfur = true;
-			if ("oreSulphur".equals(caption) && widget.xPosition < right) sulphur = true;
-			if (caption != null && widget.xPosition >= right && caption.contains("Mineralogy")) mineralogy = true;
-			if (caption != null && widget.xPosition >= right && caption.contains("Electric")) electric = true;
+			if (widget instanceof CompactScrollList && widget.xPosition < right) groupList = true;
+			if (widget instanceof CompactScrollList && widget.xPosition >= right) outputList = true;
+			if (widget instanceof TextFieldWidget && widget.xPosition < right) inlineAdministration = true;
 			if ("Back".equals(caption)) back = true;
 		}
-		if (!sulfurName || !sulfur || !sulphur || !mineralogy || !electric || back) {
-			throw new IllegalStateException("Ore Sources was not one complete two-pane screen: name="
-					+ sulfurName + ", aliases=" + sulfur + "/" + sulphur + ", outputs="
-					+ mineralogy + "/" + electric + ", back=" + back + ", left=" + left
-					+ ", right=" + right);
+		if (!groupList || !outputList || inlineAdministration || back) {
+			throw new IllegalStateException("Ore Sources was not one compact two-pane screen: groups="
+					+ groupList + ", outputs=" + outputList + ", inlineAdministration="
+					+ inlineAdministration + ", back=" + back + ", left=" + left + ", right=" + right);
+		}
+
+		GeologyEditorSession.OreSourceGroup sulfurGroup = null;
+		for (GeologyEditorSession.OreSourceGroup group : session.oreSourceGroups()) {
+			if ("orespawn:sulfur".equals(group.material)) sulfurGroup = group;
+		}
+		if (sulfurGroup == null) throw new IllegalStateException("Sulfur group disappeared before settings test");
+		OreSourceGroupSettingsScreen settings = new OreSourceGroupSettingsScreen(
+				screen, session, sulfurGroup.key);
+		settings.setWorldAndResolution(minecraft, 426, 265);
+		int compactLists = 0;
+		boolean sulfurName = false;
+		for (GuiButton widget : settings.buttons) {
+			if (widget instanceof CompactScrollList) compactLists++;
+			if (widget instanceof TextFieldWidget
+					&& "Sulfur".equals(((TextFieldWidget) widget).getValue())) sulfurName = true;
+		}
+		if (compactLists != 2 || !sulfurName
+				|| !OreSourceGroupSettingsScreen.placementChannels(sulfurGroup)
+						.contains("orespawn:standard")) {
+			throw new IllegalStateException("Group Settings did not expose aliases and placement rules: lists="
+					+ compactLists + ", name=" + sulfurName + ", channels="
+					+ OreSourceGroupSettingsScreen.placementChannels(sulfurGroup));
 		}
 		oreSourcesLayoutValidated = true;
 	}
@@ -346,7 +363,7 @@ public final class ClientProbeTestMod {
 
 	private static void validateCaptions(OreSpawnScreen screen) {
 		for (GuiButton widget : screen.buttons) {
-			if (widget instanceof CogButton) continue;
+			if (widget instanceof CogButton || widget instanceof CompactScrollList) continue;
 			String caption = TextFormatting.getTextWithoutFormattingCodes(widget.displayString);
 			if (caption == null || caption.trim().isEmpty()
 					|| caption.contains("options.generic_value")

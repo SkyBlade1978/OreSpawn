@@ -6,9 +6,13 @@ Version 4.1.0.110021
   upgraded worlds retain their previous separate placement and output behaviour.
 * Select one weighted output for an entire ordinary vein or custom deposit body
   using stable world/deposit identity, including safe missing-mod restoration.
-* Replace the technical Ore Sources list/detail flow with one material-group
-  editor that always keeps the group list and aliases beside the deduplicated
-  ore-block list. Each list paginates independently at compact resolutions.
+* Replace the technical Ore Sources list/detail flow with compact independently
+  scrolling group and output lists that remain visible together at compact
+  resolutions. Each group has a cog for its friendly name and aliases.
+* Rename the old Advanced channel controls to Placement Rules and explain their
+  separate ownership of frequency, shape, depth and host restrictions. Single
+  managed sources are read-only, multiple sources are selectable and external
+  generators remain excluded.
 * Add Keep Original, Balanced, Single and Custom output modes. Reviewed fresh
   MMD conflicts balance every eligible output through one placement budget;
   inactive provider definitions remain selectable outputs without contributing

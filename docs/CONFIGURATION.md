@@ -236,6 +236,16 @@ placement-source rule per placement channel. Balanced uses equal weights,
 Single has exactly one output, and Custom accepts any non-empty positively
 weighted subset. The UI calls `keep_separate` **Keep Original**.
 
+The Ore Sources screen keeps compact scrollable group and output lists visible
+together. Use a group's cog for its friendly name, Ore Dictionary aliases and
+**Placement Rules**. Output selection controls which registered block represents
+the material. Placement Rules separately control the managed rule that supplies
+frequency, shape, depth and host restrictions for each channel. `orespawn:standard`
+is shown as **Standard veins**; exact custom-channel IDs remain available in
+tooltips. A sole active managed source is read-only, multiple active managed
+sources are selectable, and independent external generators are never offered
+as placement owners.
+
 Consolidation runs the chosen placement rule's pattern, hosts, filters, height
 and frequency once; selected candidates contribute output bundles only. An
 inactive managed provider may therefore supply an output block without adding

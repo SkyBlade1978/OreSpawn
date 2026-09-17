@@ -27,7 +27,7 @@ class OreSpawnScreenLayoutTest {
 					.sorted()
 					.collect(Collectors.toList());
 		}
-		assertEquals(26, screens.size(), "Review this render-order gate when screens are added or removed");
+		assertEquals(27, screens.size(), "Review this render-order gate when screens are added or removed");
 		for (Path screen : screens) {
 			String source = new String(Files.readAllBytes(screen), StandardCharsets.UTF_8);
 			int render = source.indexOf(
@@ -89,37 +89,33 @@ class OreSpawnScreenLayoutTest {
 	}
 
 	@Test
-	void oreSourceEditorKeepsBothPanesVisibleAndPaginatesIndependently() throws Exception {
-		assertEquals(1, OreSourceListScreen.pageCount(0, 4));
-		assertEquals(1, OreSourceListScreen.pageCount(4, 4));
-		assertEquals(2, OreSourceListScreen.pageCount(5, 4));
+	void oreSourceEditorKeepsBothCompactScrollablePanesVisible() throws Exception {
 		assertEquals(406, OreSourceListScreen.contentWidth(426));
 		assertEquals(174, OreSourceListScreen.leftPaneWidth(426));
-		assertEquals(2, OreSourceListScreen.groupRowCount(265));
-		assertEquals(2, OreSourceListScreen.aliasRowCount(265));
-		assertEquals(6, OreSourceListScreen.outputRowCount(265, false));
-		assertEquals(5, OreSourceListScreen.outputRowCount(265, true));
+		assertEquals(209, OreSourceListScreen.listHeight(265));
+		assertEquals(13, CompactScrollList.visibleRows(209, 16));
 		assertEquals(300, OreSourceListScreen.contentWidth(320));
 		assertEquals(129, OreSourceListScreen.leftPaneWidth(320));
-		assertEquals(2, OreSourceListScreen.groupRowCount(240));
-		assertEquals(1, OreSourceListScreen.aliasRowCount(240));
-		assertEquals(5, OreSourceListScreen.outputRowCount(240, false));
-		assertEquals(4, OreSourceListScreen.outputRowCount(240, true));
+		assertEquals(184, OreSourceListScreen.listHeight(240));
+		assertEquals(11, CompactScrollList.visibleRows(184, 16));
 		String list = screenSource("OreSourceListScreen.java");
-		assertTrue(list.contains("initDirectory("));
+		assertTrue(list.contains("initGroups("));
 		assertTrue(list.contains("initOutputs("));
-		assertTrue(list.contains("initDirectory(leftPaneX, CONTENT_TOP, leftPaneWidth, groups);"));
-		assertTrue(list.contains("initOutputs(rightPaneX, CONTENT_TOP, rightPaneWidth);"));
-		assertTrue(list.contains("OreSpawnScreenLayout.fit"));
-		assertTrue(list.contains("button.orespawn.ore_source.all_groups"));
-		assertTrue(list.contains("aliasPage"));
+		assertTrue(list.contains("new CompactScrollList(this, leftPaneX, CONTENT_TOP"));
+		assertTrue(list.contains("new CompactScrollList(this, rightPaneX, CONTENT_TOP + 24"));
+		assertTrue(list.contains("label.orespawn.ore_source.groups"));
+		assertTrue(list.contains("drawCompactCog"));
 		assertTrue(list.contains("outputCandidates()"));
 		assertTrue(list.contains("single || !group.outputs.containsKey(candidate.sourceId)"),
 				"Single output rows behave as radio buttons and cannot deselect their only output");
-		assertTrue(list.contains("button.orespawn.ore_source.advanced"));
-		assertTrue(list.contains(", 20,"), "Material Groups must use normal Forge-height controls");
+		assertTrue(list.contains("mouseWheel(mouseX, mouseY, wheel)"));
 		assertTrue(list.contains("minecraft.displayGuiScreen(parent)"));
-		assertTrue(list.contains("toggle.enabled = candidate.loaded && !candidate.enrichment"));
+		assertFalse(list.contains("button.orespawn.ore_source.all_groups"));
+		assertFalse(list.contains("button.orespawn.ore_source.advanced"));
+		assertFalse(list.contains("groupPage"));
+		assertFalse(list.contains("outputPage"));
+		assertFalse(list.contains("nameField"));
+		assertFalse(list.contains("aliasField"));
 		assertFalse(list.contains("WIDE_MINIMUM"));
 		assertFalse(list.contains("compactDetail"));
 		assertFalse(list.contains("button.orespawn.back"));
@@ -127,6 +123,22 @@ class OreSpawnScreenLayoutTest {
 		assertFalse(Files.exists(Paths.get("src", "main", "java", "zone", "moddev", "mc",
 				"orespawn", "client", "OreSourceDetailScreen.java")),
 				"The technical detail screen must not remain as a second competing flow");
+	}
+
+	@Test
+	void groupSettingsOwnsAliasesAndClearlyNamedPlacementRules() throws Exception {
+		assertEquals(48, OreSourceGroupSettingsScreen.aliasListHeight(265));
+		assertEquals(32, OreSourceGroupSettingsScreen.aliasListHeight(240));
+		String settings = screenSource("OreSourceGroupSettingsScreen.java");
+		assertTrue(settings.contains("option.orespawn.ore_source.group_name"));
+		assertTrue(settings.contains("option.orespawn.ore_source.alias"));
+		assertTrue(settings.contains("label.orespawn.ore_source.placement_rules"));
+		assertTrue(settings.contains("label.orespawn.ore_source.placement_explanation"));
+		assertTrue(settings.contains("label.orespawn.ore_source.standard_veins"));
+		assertTrue(settings.contains("placementSelectable(group, channel)"));
+		assertTrue(screenSource("OreSourceListScreen.java").contains("!candidate.external"));
+		assertTrue(settings.contains("minecraft.displayGuiScreen(parent)"));
+		assertFalse(settings.contains("button.orespawn.ore_source.advanced"));
 	}
 
 	@Test
