@@ -89,24 +89,41 @@ class OreSpawnScreenLayoutTest {
 	}
 
 	@Test
-	void oreSourceDirectoryPaginatesClipsAndPreservesParentNavigation() throws Exception {
+	void oreSourceEditorKeepsBothPanesVisibleAndPaginatesIndependently() throws Exception {
 		assertEquals(1, OreSourceListScreen.pageCount(0, 4));
 		assertEquals(1, OreSourceListScreen.pageCount(4, 4));
 		assertEquals(2, OreSourceListScreen.pageCount(5, 4));
+		assertEquals(406, OreSourceListScreen.contentWidth(426));
+		assertEquals(174, OreSourceListScreen.leftPaneWidth(426));
+		assertEquals(2, OreSourceListScreen.groupRowCount(265));
+		assertEquals(2, OreSourceListScreen.aliasRowCount(265));
+		assertEquals(6, OreSourceListScreen.outputRowCount(265, false));
+		assertEquals(5, OreSourceListScreen.outputRowCount(265, true));
+		assertEquals(300, OreSourceListScreen.contentWidth(320));
+		assertEquals(129, OreSourceListScreen.leftPaneWidth(320));
+		assertEquals(2, OreSourceListScreen.groupRowCount(240));
+		assertEquals(1, OreSourceListScreen.aliasRowCount(240));
+		assertEquals(5, OreSourceListScreen.outputRowCount(240, false));
+		assertEquals(4, OreSourceListScreen.outputRowCount(240, true));
 		String list = screenSource("OreSourceListScreen.java");
-		assertTrue(list.contains("private static final int WIDE_MINIMUM = 520"));
-		assertTrue(list.contains("compact(width)"));
 		assertTrue(list.contains("initDirectory("));
 		assertTrue(list.contains("initOutputs("));
+		assertTrue(list.contains("initDirectory(leftPaneX, CONTENT_TOP, leftPaneWidth, groups);"));
+		assertTrue(list.contains("initOutputs(rightPaneX, CONTENT_TOP, rightPaneWidth);"));
 		assertTrue(list.contains("OreSpawnScreenLayout.fit"));
-		assertTrue(list.contains("button.orespawn.ore_source.needs_attention"));
 		assertTrue(list.contains("button.orespawn.ore_source.all_groups"));
-		assertTrue(list.contains("button.orespawn.ore_source.add_group"));
+		assertTrue(list.contains("aliasPage"));
 		assertTrue(list.contains("outputCandidates()"));
+		assertTrue(list.contains("single || !group.outputs.containsKey(candidate.sourceId)"),
+				"Single output rows behave as radio buttons and cannot deselect their only output");
 		assertTrue(list.contains("button.orespawn.ore_source.advanced"));
 		assertTrue(list.contains(", 20,"), "Material Groups must use normal Forge-height controls");
 		assertTrue(list.contains("minecraft.displayGuiScreen(parent)"));
 		assertTrue(list.contains("toggle.enabled = candidate.loaded && !candidate.enrichment"));
+		assertFalse(list.contains("WIDE_MINIMUM"));
+		assertFalse(list.contains("compactDetail"));
+		assertFalse(list.contains("button.orespawn.back"));
+		assertFalse(list.contains("button.orespawn.ore_source.needs_attention"));
 		assertFalse(Files.exists(Paths.get("src", "main", "java", "zone", "moddev", "mc",
 				"orespawn", "client", "OreSourceDetailScreen.java")),
 				"The technical detail screen must not remain as a second competing flow");

@@ -6,10 +6,9 @@ Version 4.1.0.110021
   upgraded worlds retain their previous separate placement and output behaviour.
 * Select one weighted output for an entire ordinary vein or custom deposit body
   using stable world/deposit identity, including safe missing-mod restoration.
-* Replace the technical Ore Sources list/detail flow with one responsive
-  material-group editor for friendly names, exact Ore Dictionary aliases and
-  selectable ore blocks. It uses side-by-side panes when wide and list/detail
-  pages at compact resolutions.
+* Replace the technical Ore Sources list/detail flow with one material-group
+  editor that always keeps the group list and aliases beside the deduplicated
+  ore-block list. Each list paginates independently at compact resolutions.
 * Add Keep Original, Balanced, Single and Custom output modes. Reviewed fresh
   MMD conflicts balance every eligible output through one placement budget;
   inactive provider definitions remain selectable outputs without contributing

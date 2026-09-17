@@ -58,16 +58,17 @@ provider revision and status; its cog opens an add-on-owned configuration
 screen when one is available. The in-game **Help & Guide** explains the other
 controls.
 
-On the ORES tab, **Ore Sources...** opens a material-group editor. Its initial
-**Needs Attention** list keeps ordinary one-source materials out of the way;
-**All Groups** reveals everything. A group has a friendly name, exact Ore
-Dictionary aliases, and the installed ore blocks that may represent it. New
-worlds balance all eligible outputs in reviewed MMD conflicts while running one
-placement budget, so sulfur/sulphur providers do not multiply abundance.
-**Single** chooses one output, **Custom** allows a weighted subset, and **Keep
-Original** preserves every active rule. Existing worlds start in Keep Original
-until their owner explicitly changes a group. Third-party generators remain
-outside OreSpawn's control and are clearly reported rather than disabled.
+On the ORES tab, **Ore Sources...** opens one material-group editor. The left
+pane lists every discovered group and keeps the selected group's friendly name
+and exact Ore Dictionary aliases directly underneath it. The right pane shows
+the deduplicated union of installed ore blocks represented by those aliases.
+Groups needing attention are sorted first. New worlds balance all eligible
+outputs in reviewed MMD conflicts while running one placement budget, so
+sulfur/sulphur providers do not multiply abundance. **Single** chooses one
+output, **Custom** allows a weighted subset, and **Keep Original** preserves
+every active rule. Existing worlds start in Keep Original until their owner
+explicitly changes a group. Third-party generators remain outside OreSpawn's
+control and are clearly reported rather than disabled.
 
 Important files:
 

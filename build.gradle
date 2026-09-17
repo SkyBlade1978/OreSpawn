@@ -676,6 +676,7 @@ task clientIntegrationProcess(type: JavaExec, dependsOn: prepareClientIntegratio
                 || result.getProperty('mods_directory_rendered') != 'true'
                 || result.getProperty('directory_stack_validated') != 'true'
                 || result.getProperty('ore_sources_validated') != 'true'
+                || result.getProperty('ore_sources_layout_validated') != 'true'
                 || result.getProperty('long_editor_roundtrip') != 'true'
                 || Integer.parseInt(result.getProperty('editor_routes', '0')) < 5) {
             throw new GradleException("Client integration result is incomplete: ${marker}")

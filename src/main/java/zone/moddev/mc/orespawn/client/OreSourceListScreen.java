@@ -13,25 +13,37 @@ import net.minecraft.client.resources.I18n;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextComponentTranslation;
 
-/** Responsive master/detail editor for material groups and their output blocks. */
+/** Single-screen material-group editor with independently paginated panes. */
 final class OreSourceListScreen extends OreSpawnScreen {
-	private static final int WIDE_MINIMUM = 520;
+	private static final int HORIZONTAL_MARGIN = 10;
+	private static final int PANE_GAP = 6;
+	private static final int CONTENT_TOP = 28;
 	private static final int ROW_HEIGHT = 22;
 	private final GuiScreen parent;
 	private final GeologyEditorSession session;
 	private final Map<String, TextFieldWidget> weights = new LinkedHashMap<>();
-	private boolean showAll;
-	private boolean compactDetail;
 	private boolean advanced;
 	private int groupPage;
+	private int aliasPage;
 	private int outputPage;
-	private int aliasIndex;
 	private int channelIndex;
 	private String selectedKey;
 	private String pendingAliasMove;
 	private String error;
 	private TextFieldWidget nameField;
 	private TextFieldWidget aliasField;
+	private int leftPaneX;
+	private int leftPaneWidth;
+	private int rightPaneX;
+	private int rightPaneWidth;
+	private int paneBottom;
+	private int groupNavigationY;
+	private int groupPages = 1;
+	private int nameLabelY;
+	private int aliasLabelY;
+	private int aliasPages = 1;
+	private int outputNavigationY;
+	private int outputPages = 1;
 
 	OreSourceListScreen(GuiScreen parent, GeologyEditorSession session) {
 		super(new TextComponentTranslation("screen.orespawn.ore_sources"));
@@ -45,186 +57,234 @@ final class OreSourceListScreen extends OreSpawnScreen {
 		weights.clear();
 		nameField = null;
 		aliasField = null;
-		List<OreSourceGroup> groups = visibleGroups();
+		List<OreSourceGroup> groups = orderedGroups();
 		if (selected(groups) == null && !groups.isEmpty()) selectedKey = groups.get(0).key;
-		boolean compact = compact(width);
-		int footer = height - 28;
-		if (compact && !compactDetail) {
-			initDirectory(12, 30, width - 24, footer - 34, groups, true);
-		} else if (compact) {
-			initCompactDetail(12, 28, width - 24, footer - 32);
-		} else {
-			int contentWidth = Math.min(700, width - 20);
-			int left = (width - contentWidth) / 2;
-			int leftWidth = Math.max(190, (contentWidth * 2) / 5);
-			initDirectory(left, 28, leftWidth, footer - 32, groups, false);
-			initOutputs(left + leftWidth + 8, 28, contentWidth - leftWidth - 8, footer - 32);
-		}
-		if (compact && compactDetail) {
-			addButton(new Button(12, footer, 92, 20,
-					new TextComponentTranslation("button.orespawn.back"), button -> {
-						syncFields(); compactDetail = false; rebuild(false);
-					}));
-			addButton(new Button(width - 162, footer, 150, 20,
-					DialogTexts.GUI_DONE, button -> onClose()));
-		} else {
-			addButton(new Button(width / 2 - 75, footer, 150, 20,
-					DialogTexts.GUI_DONE, button -> onClose()));
-		}
+
+		int contentWidth = contentWidth(width);
+		leftPaneX = (width - contentWidth) / 2;
+		leftPaneWidth = leftPaneWidth(width);
+		rightPaneX = leftPaneX + leftPaneWidth + PANE_GAP;
+		rightPaneWidth = contentWidth - leftPaneWidth - PANE_GAP;
+		paneBottom = height - 32;
+
+		initDirectory(leftPaneX, CONTENT_TOP, leftPaneWidth, groups);
+		initOutputs(rightPaneX, CONTENT_TOP, rightPaneWidth);
+		addButton(new Button(width / 2 - 75, height - 28, 150, 20,
+				DialogTexts.GUI_DONE, button -> onClose()));
 	}
 
-	private void initDirectory(int left, int top, int paneWidth, int bottom,
-			List<OreSourceGroup> groups, boolean compactLayout) {
-		int half = (paneWidth - 5) / 2;
-		addButton(OreSpawnScreenLayout.button(this, font, left, top, half, 20,
-				new TextComponentTranslation(showAll ? "button.orespawn.ore_source.needs_attention"
-						: "button.orespawn.ore_source.all_groups"), button -> {
-					showAll = !showAll; groupPage = 0; selectedKey = null; rebuild(true);
-				}));
-		addButton(OreSpawnScreenLayout.button(this, font, left + half + 5, top, half, 20,
-				new TextComponentTranslation("button.orespawn.ore_source.add_group"), button -> {
-					syncFields(); selectedKey = session.addOreMaterialGroup(); showAll = true;
-					compactDetail = compact(width); groupPage = 0; rebuild(false);
-				}));
+	private void initDirectory(int left, int top, int paneWidth, List<OreSourceGroup> groups) {
+		addButton(new Button(left + paneWidth - 24, top, 24, 20,
+				new TextComponentString("+"), button -> {
+					syncFields();
+					selectedKey = session.addOreMaterialGroup();
+					pendingAliasMove = null;
+					aliasPage = 0;
+					outputPage = 0;
+					List<OreSourceGroup> updated = orderedGroups();
+					int index = groupIndexOf(updated, selectedKey);
+					groupPage = index < 0 ? 0 : index / groupRowCount(height);
+					rebuild(false);
+				}, (button, mouseX, mouseY) -> renderStringTooltip(
+						java.util.Collections.singletonList(I18n.format(
+								"button.orespawn.ore_source.add_group")), mouseX, mouseY)));
 
-		int listTop = top + 24;
-		int editorReserve = compactLayout ? 24 : 94;
-		int rows = Math.max(1, Math.min(5, (bottom - listTop - editorReserve - 24) / ROW_HEIGHT));
-		int pages = pageCount(groups.size(), rows);
-		groupPage = Math.max(0, Math.min(groupPage, pages - 1));
+		int listTop = top + 22;
+		int rows = groupRowCount(height);
+		groupPages = pageCount(groups.size(), rows);
+		groupPage = Math.max(0, Math.min(groupPage, groupPages - 1));
 		int start = groupPage * rows;
 		for (int index = 0; index < rows && start + index < groups.size(); index++) {
 			OreSourceGroup group = groups.get(start + index);
 			int y = listTop + (index * ROW_HEIGHT);
-			String prefix = group.key.equals(selectedKey) ? "> " : "";
+			String prefix = group.key.equals(selectedKey) ? "> " : group.needsAttention() ? "! " : "";
 			String label = prefix + group.displayName + " - " + display(group.domain);
-			Button row = addButton(new Button(left, y, paneWidth, 20,
+			addButton(new Button(left, y, paneWidth, 20,
 					OreSpawnScreenLayout.fit(font, new TextComponentString(label), paneWidth - 8), button -> {
-						syncFields(); selectedKey = group.key; compactDetail = compact(width);
-						outputPage = 0; aliasIndex = 0; error = null; rebuild(false);
+						syncFields();
+						selectedKey = group.key;
+						pendingAliasMove = null;
+						aliasPage = 0;
+						outputPage = 0;
+						error = null;
+						rebuild(false);
 					}, (button, mouseX, mouseY) -> renderStringTooltip(groupTooltip(group), mouseX, mouseY)));
-			row.enabled = !group.key.equals(selectedKey) || compactLayout;
 		}
-		int navigationY = listTop + (rows * ROW_HEIGHT);
-		Button previous = addButton(new Button(left, navigationY, 48, 20,
-				new TextComponentString("<"), button -> { syncFields(); groupPage--; rebuild(false); }));
-		Button next = addButton(new Button(left + paneWidth - 48, navigationY, 48, 20,
-				new TextComponentString(">"), button -> { syncFields(); groupPage++; rebuild(false); }));
+
+		groupNavigationY = listTop + (rows * ROW_HEIGHT);
+		Button previous = addButton(new Button(left, groupNavigationY, 32, 20,
+				new TextComponentString("<"), button -> {
+					syncFields();
+					groupPage--;
+					rebuild(false);
+				}));
+		Button next = addButton(new Button(left + paneWidth - 32, groupNavigationY, 32, 20,
+				new TextComponentString(">"), button -> {
+					syncFields();
+					groupPage++;
+					rebuild(false);
+				}));
 		previous.enabled = groupPage > 0;
-		next.enabled = groupPage + 1 < pages;
-		if (!compactLayout) initGroupEditor(left, navigationY + 24, paneWidth, bottom);
+		next.enabled = groupPage + 1 < groupPages;
+		initGroupEditor(left, groupNavigationY + 24, paneWidth);
 	}
 
-	private void initCompactDetail(int left, int top, int paneWidth, int bottom) {
-		OreSourceGroup group = selected(session.oreSourceGroups());
+	private void initGroupEditor(int left, int top, int paneWidth) {
+		OreSourceGroup group = selected(orderedGroups());
 		if (group == null) return;
-		initGroupEditor(left, top, paneWidth, top + 70);
-		initOutputs(left, top + 74, paneWidth, bottom);
-	}
 
-	private void initGroupEditor(int left, int top, int paneWidth, int bottom) {
-		OreSourceGroup group = selected(session.oreSourceGroups());
-		if (group == null || top + 20 > bottom) return;
-		int actionWidth = 58;
-		nameField = addButton(new TextFieldWidget(font, left, top, paneWidth - actionWidth - 5, 20,
+		nameLabelY = top;
+		int nameTop = top + 10;
+		int actionWidth = Math.min(58, Math.max(41, paneWidth / 3));
+		nameField = addButton(new TextFieldWidget(font, left, nameTop,
+				paneWidth - actionWidth - 5, 20,
 				new TextComponentTranslation("option.orespawn.ore_source.group_name")));
 		nameField.setMaxLength(64);
 		nameField.setValue(group.displayName);
 		Button groupAction = addButton(OreSpawnScreenLayout.button(this, font,
-				left + paneWidth - actionWidth, top, actionWidth, 20,
+				left + paneWidth - actionWidth, nameTop, actionWidth, 20,
 				new TextComponentTranslation(group.curated ? "button.orespawn.reset"
 						: "button.orespawn.ore_source.delete_group"), button -> {
 					if (group.curated) session.resetOreMaterialGroup(group.material);
-					else { session.deleteOreMaterialGroup(group.material); selectedKey = null; }
+					else {
+						session.deleteOreMaterialGroup(group.material);
+						selectedKey = null;
+						groupPage = 0;
+					}
+					pendingAliasMove = null;
 					rebuild(false);
 				}));
 		OreSpawnScreenLayout.explain(this, groupAction, group.curated
 				? "tooltip.orespawn.ore_source.reset_group" : "tooltip.orespawn.ore_source.delete_group");
-		if (top + 44 > bottom) return;
+
+		aliasLabelY = nameTop + 24;
+		int aliasesTop = aliasLabelY + 10;
+		int rows = aliasRowCount(height);
 		List<String> aliases = group.oreDictionaryEntries;
-		aliasIndex = aliases.isEmpty() ? 0 : Math.max(0, Math.min(aliasIndex, aliases.size() - 1));
-		String alias = aliases.isEmpty() ? I18n.format("label.orespawn.ore_source.no_aliases")
-				: aliases.get(aliasIndex);
-		Button aliasButton = addButton(new Button(left, top + 24, paneWidth - 46, 20,
-				OreSpawnScreenLayout.fit(font, new TextComponentString(alias), paneWidth - 54), button -> {
-					if (!aliases.isEmpty()) { aliasIndex = (aliasIndex + 1) % aliases.size(); rebuild(false); }
-				}));
-		aliasButton.enabled = aliases.size() > 1;
-		Button remove = addButton(new Button(left + paneWidth - 41, top + 24, 41, 20,
-				new TextComponentString("-"), button -> {
-					if (!aliases.isEmpty()) session.removeOreMaterialAlias(group.material, aliases.get(aliasIndex));
-					aliasIndex = 0; rebuild(false);
-				}));
-		remove.enabled = !aliases.isEmpty();
-		if (top + 68 > bottom) return;
-		aliasField = addButton(new TextFieldWidget(font, left, top + 48, paneWidth - 46, 20,
+		aliasPages = pageCount(aliases.size(), rows);
+		aliasPage = Math.max(0, Math.min(aliasPage, aliasPages - 1));
+		int start = aliasPage * rows;
+		for (int index = 0; index < rows && start + index < aliases.size(); index++) {
+			String alias = aliases.get(start + index);
+			int y = aliasesTop + (index * ROW_HEIGHT);
+			addButton(new Button(left, y, paneWidth - 27, 20,
+					OreSpawnScreenLayout.fit(font, new TextComponentString(alias), paneWidth - 35),
+					button -> { }, (button, mouseX, mouseY) -> renderStringTooltip(
+							java.util.Collections.singletonList(alias), mouseX, mouseY)));
+			addButton(new Button(left + paneWidth - 22, y, 22, 20,
+					new TextComponentString("-"), button -> {
+						syncName();
+						session.removeOreMaterialAlias(group.material, alias);
+						pendingAliasMove = null;
+						rebuild(false);
+					}));
+		}
+
+		int addTop = aliasesTop + (rows * ROW_HEIGHT) + 2;
+		int addWidth = 41;
+		int fieldWidth = Math.max(30, paneWidth - addWidth - 49);
+		aliasField = addButton(new TextFieldWidget(font, left, addTop, fieldWidth, 20,
 				new TextComponentTranslation("option.orespawn.ore_source.alias")));
 		aliasField.setMaxLength(128);
 		if (pendingAliasMove != null) {
 			int split = pendingAliasMove.indexOf('|');
 			aliasField.setValue(split < 0 ? pendingAliasMove : pendingAliasMove.substring(0, split));
 		}
-		Button add = addButton(new Button(left + paneWidth - 41, top + 48, 41, 20,
-				new TextComponentString(pendingAliasMove == null ? "+" : I18n.format("button.orespawn.ore_source.move")),
-				button -> addAlias(group)));
+		Button aliasPrevious = addButton(new Button(left + fieldWidth + 3, addTop, 20, 20,
+				new TextComponentString("<"), button -> {
+					syncName();
+					aliasPage--;
+					rebuild(false);
+				}));
+		Button aliasNext = addButton(new Button(left + fieldWidth + 26, addTop, 20, 20,
+				new TextComponentString(">"), button -> {
+					syncName();
+					aliasPage++;
+					rebuild(false);
+				}));
+		aliasPrevious.enabled = aliasPage > 0;
+		aliasNext.enabled = aliasPage + 1 < aliasPages;
+		Button add = addButton(new Button(left + paneWidth - addWidth, addTop, addWidth, 20,
+				new TextComponentString(pendingAliasMove == null ? "+"
+						: I18n.format("button.orespawn.ore_source.move")), button -> addAlias(group)));
 		OreSpawnScreenLayout.explain(this, add, "tooltip.orespawn.ore_source.alias");
 	}
 
-	private void initOutputs(int left, int top, int paneWidth, int bottom) {
-		OreSourceGroup group = selected(session.oreSourceGroups());
+	private void initOutputs(int left, int top, int paneWidth) {
+		OreSourceGroup group = selected(orderedGroups());
 		if (group == null) return;
 		String mode = "keep_separate".equals(group.mode) ? "keep_original" : group.outputMode;
 		Button modeButton = addButton(OreSpawnScreenLayout.button(this, font, left, top, paneWidth, 20,
 				new TextComponentTranslation("option.orespawn.ore_source.output_mode",
 						new TextComponentTranslation("mode.orespawn.ore_source." + mode).getFormattedText()), button -> {
-					syncFields(); cycleMode(group); rebuild(false);
+					syncFields();
+					cycleMode(group);
+					outputPage = 0;
+					rebuild(false);
 				}));
 		OreSpawnScreenLayout.explain(this, modeButton, "tooltip.orespawn.ore_source.output_mode");
 
-		int advancedReserve = advanced ? 48 : 24;
 		int listTop = top + 24;
 		List<OreSourceCandidate> candidates = group.outputCandidates();
-		int rows = Math.max(1, (bottom - listTop - advancedReserve - 22) / ROW_HEIGHT);
-		int pages = pageCount(candidates.size(), rows);
-		outputPage = Math.max(0, Math.min(outputPage, pages - 1));
+		int rows = outputRowCount(height, advanced);
+		outputPages = pageCount(candidates.size(), rows);
+		outputPage = Math.max(0, Math.min(outputPage, outputPages - 1));
 		int start = outputPage * rows;
 		for (int index = 0; index < rows && start + index < candidates.size(); index++) {
 			OreSourceCandidate candidate = candidates.get(start + index);
 			int y = listTop + (index * ROW_HEIGHT);
 			boolean selected = group.outputs.containsKey(candidate.sourceId);
-			int weightWidth = "custom".equals(group.outputMode) && !"keep_separate".equals(group.mode) ? 58 : 0;
-			Button toggle = addButton(new Button(left, y, paneWidth - weightWidth - (weightWidth == 0 ? 0 : 5), 20,
-					OreSpawnScreenLayout.fit(font, new TextComponentString((selected ? "[x] " : "[ ] ")
-							+ candidateLabel(candidate)), paneWidth - weightWidth - 13), button -> {
-						syncFields(); session.setOreSourceOutput(group.key, candidate.sourceId,
-								!group.outputs.containsKey(candidate.sourceId),
-								group.outputs.containsKey(candidate.sourceId) ? group.outputs.get(candidate.sourceId) : 1.0D);
+			boolean single = "single".equals(group.outputMode) && !"keep_separate".equals(group.mode);
+			String marker = single ? (selected ? "(*) " : "( ) ") : (selected ? "[x] " : "[ ] ");
+			int weightWidth = "custom".equals(group.outputMode)
+					&& !"keep_separate".equals(group.mode) ? 58 : 0;
+			Button toggle = addButton(new Button(left, y,
+					paneWidth - weightWidth - (weightWidth == 0 ? 0 : 5), 20,
+					OreSpawnScreenLayout.fit(font, new TextComponentString(marker + candidateLabel(candidate)),
+							paneWidth - weightWidth - 13), button -> {
+						syncFields();
+						session.setOreSourceOutput(group.key, candidate.sourceId,
+								single || !group.outputs.containsKey(candidate.sourceId),
+								group.outputs.containsKey(candidate.sourceId)
+										? group.outputs.get(candidate.sourceId) : 1.0D);
 						rebuild(false);
 					}, (button, mouseX, mouseY) -> renderStringTooltip(candidateTooltip(candidate), mouseX, mouseY)));
 			toggle.enabled = candidate.loaded && !candidate.enrichment && !"keep_separate".equals(group.mode);
 			if (weightWidth > 0) {
 				TextFieldWidget weight = addButton(new TextFieldWidget(font, left + paneWidth - weightWidth,
-						y, weightWidth, 20, new TextComponentTranslation("option.orespawn.ore_source.weight")));
+						y, weightWidth, 20,
+						new TextComponentTranslation("option.orespawn.ore_source.weight")));
 				weight.setMaxLength(12);
 				weight.setValue(formatWeight(group.outputs.get(candidate.sourceId)));
 				weight.enabled = selected && candidate.loaded && !candidate.enrichment;
 				weights.put(candidate.sourceId, weight);
 			}
 		}
-		int navigationY = listTop + (rows * ROW_HEIGHT);
-		Button previous = addButton(new Button(left, navigationY, 40, 20,
-				new TextComponentString("<"), button -> { syncFields(); outputPage--; rebuild(false); }));
-		Button next = addButton(new Button(left + paneWidth - 40, navigationY, 40, 20,
-				new TextComponentString(">"), button -> { syncFields(); outputPage++; rebuild(false); }));
+
+		outputNavigationY = listTop + (rows * ROW_HEIGHT);
+		Button previous = addButton(new Button(left, outputNavigationY, 32, 20,
+				new TextComponentString("<"), button -> {
+					syncFields();
+					outputPage--;
+					rebuild(false);
+				}));
+		Button next = addButton(new Button(left + paneWidth - 32, outputNavigationY, 32, 20,
+				new TextComponentString(">"), button -> {
+					syncFields();
+					outputPage++;
+					rebuild(false);
+				}));
 		previous.enabled = outputPage > 0;
-		next.enabled = outputPage + 1 < pages;
-		Button advancedButton = addButton(OreSpawnScreenLayout.button(this, font,
-				left + 45, navigationY, paneWidth - 90, 20,
+		next.enabled = outputPage + 1 < outputPages;
+		addButton(OreSpawnScreenLayout.button(this, font, left + 37, outputNavigationY,
+				paneWidth - 74, 20,
 				new TextComponentTranslation(advanced ? "button.orespawn.ore_source.hide_advanced"
 						: "button.orespawn.ore_source.advanced"), button -> {
-						syncFields(); advanced = !advanced; rebuild(false);
-					}));
-		if (advanced) initAdvanced(group, left, navigationY + 24, paneWidth);
+					syncFields();
+					advanced = !advanced;
+					rebuild(false);
+				}));
+		if (advanced) initAdvanced(group, left, outputNavigationY + 24, paneWidth);
 	}
 
 	private void initAdvanced(OreSourceGroup group, int left, int y, int paneWidth) {
@@ -235,19 +295,22 @@ final class OreSourceListScreen extends OreSpawnScreen {
 		int half = (paneWidth - 5) / 2;
 		addButton(OreSpawnScreenLayout.button(this, font, left, y, half, 20,
 				new TextComponentString(display(channel)), button -> {
-					channelIndex = (channelIndex + 1) % channels.size(); rebuild(false);
+					channelIndex = (channelIndex + 1) % channels.size();
+					rebuild(false);
 				}));
 		List<OreSourceCandidate> placements = placementCandidates(group, channel);
 		String selected = group.placements.get(channel);
 		int index = indexOf(placements, selected);
 		if (index < 0 && !placements.isEmpty()) index = 0;
 		final int selectedIndex = index;
-		Button placement = addButton(OreSpawnScreenLayout.button(this, font, left + half + 5, y, half, 20,
+		Button placement = addButton(OreSpawnScreenLayout.button(this, font,
+				left + half + 5, y, half, 20,
 				new TextComponentString(index < 0 ? I18n.format("label.orespawn.ore_source.missing")
 						: candidateLabel(placements.get(index))), button -> {
 					if (!placements.isEmpty()) {
 						OreSourceCandidate next = placements.get((selectedIndex + 1) % placements.size());
-						session.setOreSourcePlacement(group.key, channel, next.sourceId); rebuild(false);
+						session.setOreSourcePlacement(group.key, channel, next.sourceId);
+						rebuild(false);
 					}
 				}));
 		placement.enabled = !placements.isEmpty();
@@ -277,13 +340,14 @@ final class OreSourceListScreen extends OreSpawnScreen {
 		}
 		pendingAliasMove = null;
 		error = null;
-		aliasIndex = 0;
+		aliasPage = Math.max(0, pageCount(group.oreDictionaryEntries.size() + 1,
+				aliasRowCount(height)) - 1);
 		rebuild(false);
 	}
 
 	private void syncFields() {
 		syncName();
-		OreSourceGroup group = selected(session.oreSourceGroups());
+		OreSourceGroup group = selected(orderedGroups());
 		if (group == null || !"custom".equals(group.outputMode)) return;
 		for (Map.Entry<String, TextFieldWidget> entry : weights.entrySet()) {
 			if (!group.outputs.containsKey(entry.getKey())) continue;
@@ -298,15 +362,21 @@ final class OreSourceListScreen extends OreSpawnScreen {
 	}
 
 	private void syncName() {
-		OreSourceGroup group = selected(session.oreSourceGroups());
-		if (group != null && nameField != null) session.renameOreMaterialGroup(group.material, nameField.getValue());
+		OreSourceGroup group = selected(orderedGroups());
+		if (group != null && nameField != null) {
+			session.renameOreMaterialGroup(group.material, nameField.getValue());
+		}
 	}
 
-	private List<OreSourceGroup> visibleGroups() {
-		List<OreSourceGroup> all = session.oreSourceGroups();
-		if (showAll) return all;
-		List<OreSourceGroup> result = new ArrayList<>();
-		for (OreSourceGroup group : all) if (group.needsAttention()) result.add(group);
+	private List<OreSourceGroup> orderedGroups() {
+		List<OreSourceGroup> result = new ArrayList<>(session.oreSourceGroups());
+		result.sort((left, right) -> {
+			if (left.needsAttention() != right.needsAttention()) return left.needsAttention() ? -1 : 1;
+			int name = left.displayName.compareToIgnoreCase(right.displayName);
+			if (name != 0) return name;
+			int material = left.material.compareTo(right.material);
+			return material != 0 ? material : left.domain.compareTo(right.domain);
+		});
 		return result;
 	}
 
@@ -328,6 +398,13 @@ final class OreSourceListScreen extends OreSpawnScreen {
 	private static int indexOf(List<OreSourceCandidate> candidates, String sourceId) {
 		for (int index = 0; index < candidates.size(); index++) {
 			if (candidates.get(index).sourceId.equals(sourceId)) return index;
+		}
+		return -1;
+	}
+
+	private static int groupIndexOf(List<OreSourceGroup> groups, String key) {
+		for (int index = 0; index < groups.size(); index++) {
+			if (groups.get(index).key.equals(key)) return index;
 		}
 		return -1;
 	}
@@ -359,7 +436,8 @@ final class OreSourceListScreen extends OreSpawnScreen {
 		result.add(group.material);
 		result.add(I18n.format("label.orespawn.ore_source.summary", group.outputCandidates().size(),
 				I18n.format("status.orespawn.ore_source." + group.status)));
-		result.add(group.oreDictionaryEntries.isEmpty() ? "-" : String.join(", ", group.oreDictionaryEntries));
+		result.add(group.oreDictionaryEntries.isEmpty() ? "-"
+				: String.join(", ", group.oreDictionaryEntries));
 		return result;
 	}
 
@@ -382,7 +460,29 @@ final class OreSourceListScreen extends OreSpawnScreen {
 		init();
 	}
 
-	static boolean compact(int width) { return width < WIDE_MINIMUM; }
+	static int contentWidth(int width) {
+		return Math.max(240, Math.min(700, width - (HORIZONTAL_MARGIN * 2)));
+	}
+
+	static int leftPaneWidth(int width) {
+		int content = contentWidth(width);
+		return Math.max(104, Math.min(280, (content * 43) / 100));
+	}
+
+	static int aliasRowCount(int height) {
+		return height >= 252 ? 2 : 1;
+	}
+
+	static int groupRowCount(int height) {
+		int available = (height - 32) - CONTENT_TOP;
+		int fixed = 112 + (aliasRowCount(height) * ROW_HEIGHT);
+		return Math.max(1, Math.min(5, (available - fixed) / ROW_HEIGHT));
+	}
+
+	static int outputRowCount(int height, boolean advanced) {
+		int available = (height - 32) - (CONTENT_TOP + 24) - (advanced ? 68 : 44);
+		return Math.max(1, available / ROW_HEIGHT);
+	}
 
 	static int pageCount(int entries, int pageSize) {
 		return Math.max(1, (Math.max(0, entries) + Math.max(1, pageSize) - 1) / Math.max(1, pageSize));
@@ -397,13 +497,34 @@ final class OreSourceListScreen extends OreSpawnScreen {
 	@Override
 	public void render(int mouseX, int mouseY, float partialTick) {
 		renderBackground();
+		drawRect(leftPaneX - 2, CONTENT_TOP - 2,
+				leftPaneX + leftPaneWidth + 2, paneBottom + 2, 0x70000000);
+		drawRect(rightPaneX - 2, CONTENT_TOP - 2,
+				rightPaneX + rightPaneWidth + 2, paneBottom + 2, 0x70000000);
 		drawCenteredString(font, title, width / 2, 8, 0xFFFFFF);
-		if (error != null) drawCenteredString(font, new TextComponentString(
-				OreSpawnScreenLayout.fit(font, new TextComponentString(error), width - 24)), width / 2, 19, 0xFF5555);
-		List<OreSourceGroup> groups = visibleGroups();
-		if (groups.isEmpty()) drawCenteredString(font,
-				new TextComponentTranslation(showAll ? "label.orespawn.ore_source.none"
-						: "label.orespawn.ore_source.none_attention"), width / 2, height / 2, 0xA0A0A0);
+		if (error != null) {
+			drawCenteredString(font, new TextComponentString(OreSpawnScreenLayout.fit(font,
+					new TextComponentString(error), width - 24)), width / 2, 19, 0xFF5555);
+		}
+		drawString(font, new TextComponentTranslation("button.orespawn.ore_source.all_groups"),
+				leftPaneX + 4, CONTENT_TOP + 6, 0xFFFFFF);
+		drawCenteredString(font, new TextComponentString((groupPage + 1) + " / " + groupPages),
+				leftPaneX + (leftPaneWidth / 2), groupNavigationY + 6, 0xA0A0A0);
+		OreSourceGroup group = selected(orderedGroups());
+		if (group == null) {
+			drawCenteredString(font, new TextComponentTranslation("label.orespawn.ore_source.none"),
+					leftPaneX + (leftPaneWidth / 2), CONTENT_TOP + 68, 0xA0A0A0);
+		} else {
+			drawString(font, new TextComponentTranslation("option.orespawn.ore_source.group_name"),
+					leftPaneX + 2, nameLabelY, 0xA0A0A0);
+			String aliases = I18n.format("option.orespawn.ore_source.alias")
+					+ " " + (aliasPage + 1) + " / " + aliasPages;
+			drawString(font, new TextComponentString(OreSpawnScreenLayout.fit(font,
+					new TextComponentString(aliases), leftPaneWidth - 4)),
+					leftPaneX + 2, aliasLabelY, 0xA0A0A0);
+			drawCenteredString(font, new TextComponentString((outputPage + 1) + " / " + outputPages),
+					rightPaneX + (rightPaneWidth / 2), outputNavigationY + 6, 0xA0A0A0);
+		}
 		super.render(mouseX, mouseY, partialTick);
 		OreSpawnScreenLayout.renderExplanations(this, mouseX, mouseY);
 	}

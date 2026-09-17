@@ -54,6 +54,8 @@ public final class ClientProbeTestMod {
 			System.getProperty("clientprobe.expectedMods", "").trim().isEmpty();
 	private boolean oreSourcesValidated =
 			System.getProperty("clientprobe.expectedMods", "").trim().isEmpty();
+	private boolean oreSourcesLayoutValidated =
+			System.getProperty("clientprobe.expectedMods", "").trim().isEmpty();
 	private boolean longEditorRoundTrip;
 
 	@Mod.EventHandler
@@ -246,8 +248,9 @@ public final class ClientProbeTestMod {
 	}
 
 	private void validateExpectedOreSources(OreSpawnWorldSettingsScreen root) {
+		GeologyEditorSession session = editorSession(root);
 		GeologyEditorSession.OreSourceGroup sulfur = null;
-		for (GeologyEditorSession.OreSourceGroup group : editorSession(root).oreSourceGroups()) {
+		for (GeologyEditorSession.OreSourceGroup group : session.oreSourceGroups()) {
 			if ("orespawn:sulfur".equals(group.material)
 					&& "minecraft:overworld".equals(group.domain)) sulfur = group;
 		}
@@ -282,7 +285,40 @@ public final class ClientProbeTestMod {
 			throw new IllegalStateException("Sulfur outputs were not classified correctly: mineralogy="
 					+ mineralogy + ", electricOutputOnly=" + electricOutputOnly);
 		}
+		validateOreSourcesSingleScreen(root, session);
 		oreSourcesValidated = true;
+	}
+
+	private void validateOreSourcesSingleScreen(GuiScreen parent, GeologyEditorSession session) {
+		Minecraft minecraft = Minecraft.getMinecraft();
+		OreSourceListScreen screen = new OreSourceListScreen(parent, session);
+		screen.setWorldAndResolution(minecraft, 426, 265);
+		int contentWidth = OreSourceListScreen.contentWidth(426);
+		int left = (426 - contentWidth) / 2;
+		int right = left + OreSourceListScreen.leftPaneWidth(426) + 6;
+		boolean sulfurName = false;
+		boolean sulfur = false;
+		boolean sulphur = false;
+		boolean mineralogy = false;
+		boolean electric = false;
+		boolean back = false;
+		for (GuiButton widget : screen.buttons) {
+			String caption = TextFormatting.getTextWithoutFormattingCodes(widget.displayString);
+			if (widget instanceof TextFieldWidget && "Sulfur".equals(((TextFieldWidget) widget).getValue())
+					&& widget.xPosition < right) sulfurName = true;
+			if ("oreSulfur".equals(caption) && widget.xPosition < right) sulfur = true;
+			if ("oreSulphur".equals(caption) && widget.xPosition < right) sulphur = true;
+			if (caption != null && widget.xPosition >= right && caption.contains("Mineralogy")) mineralogy = true;
+			if (caption != null && widget.xPosition >= right && caption.contains("Electric")) electric = true;
+			if ("Back".equals(caption)) back = true;
+		}
+		if (!sulfurName || !sulfur || !sulphur || !mineralogy || !electric || back) {
+			throw new IllegalStateException("Ore Sources was not one complete two-pane screen: name="
+					+ sulfurName + ", aliases=" + sulfur + "/" + sulphur + ", outputs="
+					+ mineralogy + "/" + electric + ", back=" + back + ", left=" + left
+					+ ", right=" + right);
+		}
+		oreSourcesLayoutValidated = true;
 	}
 
 	private static GeologyEditorSession editorSession(OreSpawnWorldSettingsScreen root) {
@@ -450,6 +486,7 @@ public final class ClientProbeTestMod {
 		values.setProperty("mods_directory_rendered", Boolean.toString(modsDirectoryRendered));
 		values.setProperty("directory_stack_validated", Boolean.toString(directoryStackValidated));
 		values.setProperty("ore_sources_validated", Boolean.toString(oreSourcesValidated));
+		values.setProperty("ore_sources_layout_validated", Boolean.toString(oreSourcesLayoutValidated));
 		values.setProperty("long_editor_roundtrip", Boolean.toString(longEditorRoundTrip));
 		values.setProperty("editor_routes", Integer.toString(editorRoutes.size()));
 		values.setProperty("editor_classes", editorRoutes.toString());

@@ -271,6 +271,11 @@ class GeologyEditorSessionTest {
 	void balancedSingleAndCustomModesKeepOneExplicitOutputPolicy() {
 		GeologyEditorSession session = new GeologyEditorSession(profileWithTwoOreOutputs());
 		String key = session.oreSourceGroups().get(0).key;
+		GeologyEditorSession.OreSourceGroup initial = session.oreSourceGroups().get(0);
+		assertTrue(initial.oreDictionaryEntries.contains("oreSulfur"));
+		assertTrue(initial.oreDictionaryEntries.contains("oreSulphur"));
+		assertEquals(2, initial.outputCandidates().size(),
+				"the selected group exposes the union of candidates from all aliases");
 
 		session.setOreSourceOutputMode(key, "balanced");
 		GeologyEditorSession.OreSourceGroup balanced = session.oreSourceGroups().get(0);
