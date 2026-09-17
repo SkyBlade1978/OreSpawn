@@ -37,6 +37,9 @@ Version 4.1.0.110021
 * Keep Group Settings validation visible on a dedicated bottom row, with the
   Done action in the lower-right corner and full clipped messages available by
   tooltip during confirmed Ore Dictionary alias reassignment.
+* Prevent Balanced, Single or Custom consolidation when a material group has
+  no active OreSpawn-managed placement rule, retaining the review action and
+  Keep Original behaviour instead of entering an unresolved red policy.
 * Add provider schema 5 material and placement-channel declarations, global
   schema 8 and world-profile schema 7 while retaining older readable schemas.
 * Add an extended, binary-compatible ore generation context exposing stable

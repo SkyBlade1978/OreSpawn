@@ -10,8 +10,9 @@ import java.util.Arrays;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import zone.moddev.mc.orespawn.worldgen.WorldGeologyProfile;
 
@@ -296,6 +297,31 @@ class GeologyEditorSessionTest {
 		GeologyEditorSession.OreSourceGroup custom = session.oreSourceGroups().get(0);
 		assertEquals(1, custom.outputs.size());
 		assertEquals(2.5D, custom.outputs.get("baseminerals:sulfur").doubleValue());
+	}
+
+	@Test
+	void outputOnlyCustomGroupCannotEnterAnInvalidBalancedPolicy() {
+		JsonObject root = profileWithTwoOreOutputs().rootCopy();
+		JsonObject policy = root.getAsJsonObject("ore_source_policies")
+				.getAsJsonObject("orespawn:sulfur|minecraft:overworld");
+		policy.getAsJsonObject("placement_sources").entrySet().clear();
+		for (JsonElement element : policy.getAsJsonArray("candidates")) {
+			element.getAsJsonObject().addProperty("placement_active", false);
+		}
+		policy.addProperty("mode", "keep_separate");
+		policy.addProperty("output_mode", "custom");
+		policy.addProperty("review_required", true);
+		policy.addProperty("status", "review_required");
+		GeologyEditorSession session = new GeologyEditorSession(WorldGeologyProfile.fromJson(
+				root, WorldGeologyProfile.recommended(false)));
+
+		session.setOreSourceOutputMode("orespawn:sulfur|minecraft:overworld", "balanced");
+
+		GeologyEditorSession.OreSourceGroup group = session.oreSourceGroups().get(0);
+		assertEquals("keep_separate", group.mode);
+		assertEquals("custom", group.outputMode);
+		assertTrue(group.needsReview(), "Keep Original remains available for explicit review");
+		assertFalse(group.hasManagedPlacementSource());
 	}
 
 	@Test

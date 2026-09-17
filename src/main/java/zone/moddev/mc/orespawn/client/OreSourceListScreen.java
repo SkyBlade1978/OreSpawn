@@ -268,6 +268,12 @@ final class OreSourceListScreen extends OreSpawnScreen {
 	}
 
 	private void cycleMode(OreSourceGroup group) {
+		if (!group.hasManagedPlacementSource()) {
+			if (!"keep_separate".equals(group.mode)) session.restoreOreSourceOriginalMode(group.key);
+			error = I18n.format("label.orespawn.ore_source.no_placement_rules");
+			return;
+		}
+		error = null;
 		if ("keep_separate".equals(group.mode)) session.setOreSourceOutputMode(group.key, "balanced");
 		else if ("balanced".equals(group.outputMode)) session.setOreSourceOutputMode(group.key, "single");
 		else if ("single".equals(group.outputMode)) session.setOreSourceOutputMode(group.key, "custom");

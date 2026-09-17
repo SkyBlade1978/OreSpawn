@@ -46,6 +46,12 @@ class OreSourcePlacementScreenTest {
 		assertFalse(OreSourceGroupSettingsScreen.placementSelectable(
 				group("keep_separate", Arrays.asList(first, second), Collections.emptyMap()),
 				"orespawn:standard"));
+		assertTrue(group("keep_separate", Collections.singletonList(first),
+				Collections.emptyMap()).hasManagedPlacementSource());
+		OreSourceCandidate outputOnly = candidate("output", "orespawn:standard",
+				true, false, false);
+		assertFalse(group("keep_separate", Collections.singletonList(outputOnly),
+				Collections.emptyMap()).hasManagedPlacementSource());
 	}
 
 	@Test

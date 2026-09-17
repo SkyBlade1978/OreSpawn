@@ -429,6 +429,52 @@ public final class ClientProbeTestMod {
 		if (!material.equals(customSession.oreDictionaryOwner("oreDiamond"))) {
 			throw new IllegalStateException("Move did not confirm oreDiamond reassignment");
 		}
+		if (!customSession.addOreMaterialAlias(material, "oreEmerald", true)) {
+			throw new IllegalStateException("Could not construct the output-only Precious Stones group");
+		}
+		GeologyEditorSession.OreSourceGroup customGroup = null;
+		for (GeologyEditorSession.OreSourceGroup group : customSession.oreSourceGroups()) {
+			if (customKey.equals(group.key)) customGroup = group;
+		}
+		if (customGroup == null || customGroup.hasManagedPlacementSource()
+				|| !customGroup.needsReview() || customGroup.outputCandidates().size() != 2) {
+			throw new IllegalStateException("Output-only Precious Stones review was not constructed");
+		}
+		OreSourceListScreen outputs = new OreSourceListScreen(parent, customSession);
+		outputs.setWorldAndResolution(minecraft, 426, 265);
+		Button mode = button(outputs, I18n.format("option.orespawn.ore_source.output_mode",
+				I18n.format("mode.orespawn.ore_source.keep_original")));
+		Button accept = button(outputs, I18n.format("button.orespawn.ore_source.accept"));
+		if (mode == null || accept == null) {
+			throw new IllegalStateException("Output-only review did not retain Keep Original and Accept");
+		}
+		mode.press();
+		GeologyEditorSession.OreSourceGroup after = null;
+		for (GeologyEditorSession.OreSourceGroup group : customSession.oreSourceGroups()) {
+			if (customKey.equals(group.key)) after = group;
+		}
+		String outputError;
+		try {
+			Field field = OreSourceListScreen.class.getDeclaredField("error");
+			field.setAccessible(true);
+			outputError = (String) field.get(outputs);
+		} catch (ReflectiveOperationException exception) {
+			throw new IllegalStateException("Could not inspect Ore Sources validation state", exception);
+		}
+		if (after == null || !"keep_separate".equals(after.mode) || !after.needsReview()
+				|| outputError == null || outputError.isEmpty()
+				|| button(outputs, I18n.format("button.orespawn.ore_source.accept")) == null) {
+			throw new IllegalStateException("Output-only group entered invalid Balanced mode: error="
+					+ outputError + ", mode=" + (after == null ? "missing" : after.mode));
+		}
+	}
+
+	private static Button button(OreSpawnScreen screen, String caption) {
+		for (GuiButton widget : screen.buttons) {
+			String text = TextFormatting.getTextWithoutFormattingCodes(widget.displayString);
+			if (widget instanceof Button && caption.equals(text)) return (Button) widget;
+		}
+		return null;
 	}
 
 	private void validateKeepOriginalAcceptance(Minecraft minecraft, GuiScreen parent,

@@ -651,6 +651,7 @@ final class GeologyEditorSession {
 		if (!"balanced".equals(outputMode) && !"single".equals(outputMode)
 				&& !"custom".equals(outputMode)) return;
 		JsonObject policy = objectEntry(section("ore_source_policies"), key);
+		if (!hasManagedPlacementSource(policy)) return;
 		policy.addProperty("mode", "consolidated");
 		policy.addProperty("output_mode", outputMode);
 		JsonObject outputs = objectEntry(policy, "outputs");
@@ -732,6 +733,18 @@ final class GeologyEditorSession {
 		if (sourceId == null || sourceId.isEmpty()) return false;
 		for (JsonObject candidate : outputCandidateJson(policy)) {
 			if (sourceId.equals(string(candidate, "source_id", ""))) return true;
+		}
+		return false;
+	}
+
+	private static boolean hasManagedPlacementSource(JsonObject policy) {
+		if (!policy.has("candidates") || !policy.get("candidates").isJsonArray()) return false;
+		for (JsonElement element : policy.getAsJsonArray("candidates")) {
+			if (!element.isJsonObject()) continue;
+			JsonObject candidate = element.getAsJsonObject();
+			if (bool(candidate, "loaded", false) && bool(candidate, "placement_active", false)
+					&& !bool(candidate, "external", false)
+					&& !bool(candidate, "enrichment", false)) return true;
 		}
 		return false;
 	}
@@ -852,6 +865,14 @@ final class GeologyEditorSession {
 
 		boolean needsReview() {
 			return "review_required".equals(status);
+		}
+
+		boolean hasManagedPlacementSource() {
+			for (OreSourceCandidate candidate : candidates) {
+				if (candidate.loaded && candidate.active && !candidate.external
+						&& !candidate.enrichment) return true;
+			}
+			return false;
 		}
 
 		boolean isRoutineSingleSource() {
