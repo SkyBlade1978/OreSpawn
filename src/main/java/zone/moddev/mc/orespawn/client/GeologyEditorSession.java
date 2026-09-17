@@ -95,6 +95,44 @@ final class GeologyEditorSession {
 		normalizeRegistrySections(root);
 	}
 
+	void setManageVanillaOres(boolean enabled) {
+		WorldGeologyProfile current = profile();
+		JsonObject refreshed = current.rootCopy();
+		refreshed.addProperty("manage_vanilla_ores", enabled);
+		applyProfile(WorldGeologyProfile.fromGlobalConfig(refreshed,
+				current.geologyMode(), current.placeFluidDeposits()));
+		synchronizeVanillaPlacementSources(enabled);
+	}
+
+	private void synchronizeVanillaPlacementSources(boolean enabled) {
+		JsonObject ores = section("ores");
+		for (Entry<String, JsonElement> entry : section("ore_source_policies").entrySet()) {
+			if (!entry.getValue().isJsonObject()) continue;
+			JsonObject policy = entry.getValue().getAsJsonObject();
+			JsonObject placements = objectEntry(policy, "placement_sources");
+			if (!policy.has("candidates") || !policy.get("candidates").isJsonArray()) continue;
+			for (JsonElement element : policy.getAsJsonArray("candidates")) {
+				if (!element.isJsonObject()) continue;
+				JsonObject candidate = element.getAsJsonObject();
+				String sourceId = string(candidate, "source_id", "");
+				if (!ores.has(sourceId) || !ores.get(sourceId).isJsonObject()
+						|| !bool(ores.getAsJsonObject(sourceId), "native_generation", false)) continue;
+				String channel = string(candidate, "placement_channel", "orespawn:standard");
+				if (enabled && bool(candidate, "loaded", false)
+						&& bool(candidate, "placement_active", false)
+						&& !bool(candidate, "external", false)
+						&& !bool(candidate, "enrichment", false)
+						&& !placements.has(channel)) {
+					placements.addProperty(channel, sourceId);
+				} else if (!enabled && placements.has(channel)
+						&& sourceId.equals(string(placements, channel, ""))) {
+					placements.remove(channel);
+				}
+			}
+			refreshOreSourceStatus(policy);
+		}
+	}
+
 	JsonObject section(String key) {
 		return object(root, key);
 	}
@@ -454,11 +492,28 @@ final class GeologyEditorSession {
 		return null;
 	}
 
+	boolean vanillaOreManagementRequiredForAliasMove(String material, String alias) {
+		if (bool(root, "manage_vanilla_ores", false)) return false;
+		String owner = oreDictionaryOwner(alias);
+		if (owner == null || owner.equals(material)) return false;
+		JsonObject ores = section("ores");
+		for (OreSourceGroup group : oreSourceGroups()) {
+			if (!owner.equals(group.material)) continue;
+			for (OreSourceCandidate candidate : group.candidates) {
+				if (!candidate.loaded || candidate.external || !candidate.oreDictionary.contains(alias)
+						|| !ores.has(candidate.sourceId) || !ores.get(candidate.sourceId).isJsonObject()) continue;
+				if (bool(ores.getAsJsonObject(candidate.sourceId), "native_generation", false)) return true;
+			}
+		}
+		return false;
+	}
+
 	boolean addOreMaterialAlias(String material, String alias, boolean moveExisting) {
 		if (!validResource(material) || !validOreDictionaryName(alias)) return false;
 		String owner = oreDictionaryOwner(alias);
 		if (owner != null && !owner.equals(material)) {
 			if (!moveExisting) return false;
+			if (vanillaOreManagementRequiredForAliasMove(material, alias)) return false;
 			removeOreMaterialAlias(owner, alias);
 		}
 		JsonObject definition = objectEntry(section("ore_material_groups"), material);

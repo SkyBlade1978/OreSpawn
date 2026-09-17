@@ -443,6 +443,7 @@ tooltip.orespawn.ore_source.reset_group=Restore this curated group name and Ore 
 tooltip.orespawn.ore_source.delete_group=Delete this custom group without rewriting generated chunks.
 error.orespawn.ore_source.alias=Use an exact Ore Dictionary ore name such as oreSulfur.
 error.orespawn.ore_source.alias_owned=%s already owns this entry. Press Move to reassign it.
+error.orespawn.ore_source.manage_vanilla_first=Enable Manage Vanilla Ores before moving a native vanilla ore into another group.
 error.orespawn.ore_source.defaults_write=Could not save material-group defaults.
 screen.orespawn.ore_source.group_settings=Ore Source Group Settings
 label.orespawn.ore_source.groups=Groups

@@ -66,6 +66,10 @@ safely instead of breaking world creation.
   multiple managed sources can be selected. Hover the Placement Rules help or
   a rule row to see whether it is fixed, selectable, missing, or inactive under
   Keep Original.
+  Turning **Manage Vanilla Ores** on makes native vanilla rules available here
+  immediately. When it is off, OreSpawn will not let a vanilla ore alias be
+  moved into another group; the screen tells you to enable vanilla management
+  first.
   Independent external generators
   are explained but never offered as controllable placement sources.
 - **Mods** opens a paginated directory of loaded OreSpawn integrations. It

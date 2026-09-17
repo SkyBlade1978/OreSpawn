@@ -443,6 +443,7 @@ tooltip.orespawn.ore_source.reset_group=Stelle den Namen und die Ore-Dictionary-
 tooltip.orespawn.ore_source.delete_group=Lösche diese benutzerdefinierte Gruppe, ohne erzeugte Chunks neu zu schreiben.
 error.orespawn.ore_source.alias=Verwende einen exakten Ore-Dictionary-Erznamen wie oreSulfur.
 error.orespawn.ore_source.alias_owned=%s besitzt diesen Eintrag bereits. Drücke Verschieben, um ihn neu zuzuweisen.
+error.orespawn.ore_source.manage_vanilla_first=Aktiviere „Vanilla-Erze verwalten“, bevor du ein natives Vanilla-Erz in eine andere Gruppe verschiebst.
 error.orespawn.ore_source.defaults_write=Die Standardwerte der Materialgruppen konnten nicht gespeichert werden.
 screen.orespawn.ore_source.group_settings=Erzquellen-Gruppeneinstellungen
 label.orespawn.ore_source.groups=Gruppen

@@ -258,6 +258,13 @@ as placement owners. The compact help and row tooltips explain whether a rule is
 fixed, selectable, missing or inactive under Keep Original without reducing the
 alias-list height.
 
+Native vanilla ore rules are active placement sources only when
+`manage_vanilla_ores` is enabled. Changing that option refreshes the pending
+Ore Sources snapshot before the editor opens. While it is disabled, Group
+Settings refuses to move a native vanilla ore's Ore Dictionary alias into
+another material group and explains that vanilla management must be enabled
+first.
+
 Consolidation runs the chosen placement rule's pattern, hosts, filters, height
 and frequency once; selected candidates contribute output bundles only. An
 inactive managed provider may therefore supply an output block without adding

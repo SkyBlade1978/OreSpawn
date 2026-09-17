@@ -294,9 +294,8 @@ public final class OreSpawnWorldSettingsScreen extends OreSpawnScreen {
 		WorldGeologyProfile selected = session.profile().withSelection(
 				geologyMode, horizontalSize, verticalThickness, waviness,
 				edgeIrregularity, formationContinuity, placeFluidDeposits);
-		com.google.gson.JsonObject root = selected.rootCopy();
-		root.addProperty("manage_vanilla_ores", manageVanillaOres);
-		session.applyProfile(selected.withRoot(root));
+		session.applyProfile(selected);
+		session.setManageVanillaOres(manageVanillaOres);
 	}
 
 	private void openMaterials() {

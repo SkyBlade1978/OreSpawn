@@ -443,6 +443,7 @@ tooltip.orespawn.ore_source.reset_group=Восстанавливает назв�
 tooltip.orespawn.ore_source.delete_group=Удаляет эту настраиваемую группу без перезаписи созданных чанков.
 error.orespawn.ore_source.alias=Используйте точное имя из словаря руд, например oreSulfur.
 error.orespawn.ore_source.alias_owned=%s уже владеет этой записью. Нажмите Переместить для переназначения.
+error.orespawn.ore_source.manage_vanilla_first=Включите управление ванильными рудами, прежде чем перемещать ванильную руду в другую группу.
 error.orespawn.ore_source.defaults_write=Не удалось сохранить значения групп материалов по умолчанию.
 screen.orespawn.ore_source.group_settings=Настройки группы источников руды
 label.orespawn.ore_source.groups=Группы

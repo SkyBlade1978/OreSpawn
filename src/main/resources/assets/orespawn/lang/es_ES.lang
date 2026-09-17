@@ -443,6 +443,7 @@ tooltip.orespawn.ore_source.reset_group=Restaura el nombre y las entradas del di
 tooltip.orespawn.ore_source.delete_group=Elimina este grupo personalizado sin reescribir los chunks generados.
 error.orespawn.ore_source.alias=Usa un nombre exacto del diccionario de minerales, como oreSulfur.
 error.orespawn.ore_source.alias_owned=%s ya posee esta entrada. Pulsa Mover para reasignarla.
+error.orespawn.ore_source.manage_vanilla_first=Activa «Gestionar minerales de Vanilla» antes de mover un mineral nativo de Vanilla a otro grupo.
 error.orespawn.ore_source.defaults_write=No se pudieron guardar los valores predeterminados de los grupos de materiales.
 screen.orespawn.ore_source.group_settings=Configuración del grupo de fuentes de mena
 label.orespawn.ore_source.groups=Grupos

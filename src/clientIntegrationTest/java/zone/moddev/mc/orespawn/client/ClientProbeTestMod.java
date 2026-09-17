@@ -372,6 +372,7 @@ public final class ClientProbeTestMod {
 			GeologyEditorSession source) {
 		GeologyEditorSession customSession = new GeologyEditorSession(
 				WorldGeologyProfile.fromJson(source.profile().rootCopy(), source.profile()));
+		customSession.setManageVanillaOres(false);
 		String customKey = customSession.addOreMaterialGroup();
 		String material = customKey.substring(0, customKey.indexOf('|'));
 		customSession.renameOreMaterialGroup(material, "Precious Stones");
@@ -415,30 +416,52 @@ public final class ClientProbeTestMod {
 		int contentWidth = 406;
 		int expectedDoneX = 10 + contentWidth
 				- OreSourceGroupSettingsScreen.doneButtonWidth(contentWidth);
-		if (move == null || message == null || message.isEmpty() || done == null
+		if (move != null || !I18n.format("error.orespawn.ore_source.manage_vanilla_first").equals(message)
+				|| done == null
 				|| done.xPosition != expectedDoneX || done.yPosition != 237
 				|| OreSourceGroupSettingsScreen.validationMessageWidth(contentWidth) <= 0) {
-			throw new IllegalStateException("Alias reassignment message did not own the bottom row: move="
+			throw new IllegalStateException("Disabled vanilla management did not block reassignment: move="
 					+ (move != null) + ", message=" + message + ", done="
 					+ (done == null ? "missing" : done.xPosition + "," + done.yPosition));
 		}
 		if (!originalOwner.equals(customSession.oreDictionaryOwner("oreDiamond"))) {
-			throw new IllegalStateException("First alias action reassigned oreDiamond without confirmation");
+			throw new IllegalStateException("Blocked vanilla alias move changed oreDiamond ownership");
+		}
+
+		customSession.setManageVanillaOres(true);
+		settings = new OreSourceGroupSettingsScreen(parent, customSession, customKey);
+		settings.setWorldAndResolution(minecraft, 426, 265);
+		alias = null;
+		add = null;
+		for (GuiButton widget : settings.buttons) {
+			if (widget instanceof TextFieldWidget
+					&& ((TextFieldWidget) widget).getValue().isEmpty()) alias = (TextFieldWidget) widget;
+			String caption = TextFormatting.getTextWithoutFormattingCodes(widget.displayString);
+			if (widget instanceof Button && "+".equals(caption)) add = (Button) widget;
+		}
+		if (alias == null || add == null) {
+			throw new IllegalStateException("Managed vanilla alias controls did not reopen");
+		}
+		alias.setValue("oreDiamond");
+		add.press();
+		move = button(settings, I18n.format("button.orespawn.ore_source.move"));
+		if (move == null) {
+			throw new IllegalStateException("Managed vanilla alias move did not request confirmation");
 		}
 		move.press();
 		if (!material.equals(customSession.oreDictionaryOwner("oreDiamond"))) {
 			throw new IllegalStateException("Move did not confirm oreDiamond reassignment");
 		}
 		if (!customSession.addOreMaterialAlias(material, "oreEmerald", true)) {
-			throw new IllegalStateException("Could not construct the output-only Precious Stones group");
+			throw new IllegalStateException("Could not construct the managed Precious Stones group");
 		}
 		GeologyEditorSession.OreSourceGroup customGroup = null;
 		for (GeologyEditorSession.OreSourceGroup group : customSession.oreSourceGroups()) {
 			if (customKey.equals(group.key)) customGroup = group;
 		}
-		if (customGroup == null || customGroup.hasManagedPlacementSource()
+		if (customGroup == null || !customGroup.hasManagedPlacementSource()
 				|| !customGroup.needsReview() || customGroup.outputCandidates().size() != 2) {
-			throw new IllegalStateException("Output-only Precious Stones review was not constructed");
+			throw new IllegalStateException("Managed Precious Stones review was not constructed");
 		}
 		OreSourceListScreen outputs = new OreSourceListScreen(parent, customSession);
 		outputs.setWorldAndResolution(minecraft, 426, 265);
@@ -446,7 +469,7 @@ public final class ClientProbeTestMod {
 				I18n.format("mode.orespawn.ore_source.keep_original")));
 		Button accept = button(outputs, I18n.format("button.orespawn.ore_source.accept"));
 		if (mode == null || accept == null) {
-			throw new IllegalStateException("Output-only review did not retain Keep Original and Accept");
+			throw new IllegalStateException("Managed vanilla review did not retain Keep Original and Accept");
 		}
 		mode.press();
 		GeologyEditorSession.OreSourceGroup after = null;
@@ -461,10 +484,10 @@ public final class ClientProbeTestMod {
 		} catch (ReflectiveOperationException exception) {
 			throw new IllegalStateException("Could not inspect Ore Sources validation state", exception);
 		}
-		if (after == null || !"keep_separate".equals(after.mode) || !after.needsReview()
-				|| outputError == null || outputError.isEmpty()
-				|| button(outputs, I18n.format("button.orespawn.ore_source.accept")) == null) {
-			throw new IllegalStateException("Output-only group entered invalid Balanced mode: error="
+		if (after == null || !"consolidated".equals(after.mode) || after.needsAttention()
+				|| outputError != null
+				|| button(outputs, I18n.format("button.orespawn.ore_source.accept")) != null) {
+			throw new IllegalStateException("Managed vanilla group did not enter Balanced mode: error="
 					+ outputError + ", mode=" + (after == null ? "missing" : after.mode));
 		}
 	}

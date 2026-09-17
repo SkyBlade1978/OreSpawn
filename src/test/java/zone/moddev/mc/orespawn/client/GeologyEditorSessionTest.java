@@ -16,12 +16,22 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import zone.moddev.mc.orespawn.worldgen.WorldGeologyProfile;
 
+import net.minecraft.init.Blocks;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.oredict.OreDictionary;
+
 import zone.moddev.mc.orespawn.test.Forge12TestBootstrap;
 
 class GeologyEditorSessionTest {
 	@BeforeAll
 	static void bootstrapMinecraft() {
 		Forge12TestBootstrap.registerVanilla();
+		ItemStack diamond = new ItemStack(Blocks.DIAMOND_ORE);
+		boolean registered = false;
+		for (int id : OreDictionary.getOreIDs(diamond)) {
+			registered |= "oreDiamond".equals(OreDictionary.getOreName(id));
+		}
+		if (!registered) OreDictionary.registerOre("oreDiamond", diamond);
 	}
 
 	@Test
@@ -269,6 +279,44 @@ class GeologyEditorSessionTest {
 	}
 
 	@Test
+	void manageVanillaToggleRebakesNativePlacementSourcesInsideTheEditor() {
+		GeologyEditorSession session = new GeologyEditorSession(profileWithNativeDiamondOre());
+		GeologyEditorSession.OreSourceGroup disabled = group(session, "orespawn:diamond");
+		assertFalse(session.profile().manageVanillaOres());
+		assertFalse(disabled.hasManagedPlacementSource());
+		assertTrue(disabled.placements.isEmpty());
+
+		session.setManageVanillaOres(true);
+		GeologyEditorSession.OreSourceGroup enabled = group(session, "orespawn:diamond");
+		assertTrue(session.profile().manageVanillaOres());
+		assertTrue(enabled.hasManagedPlacementSource());
+		assertEquals("minecraft:diamond_ore", enabled.placements.get("orespawn:standard"));
+
+		session.setManageVanillaOres(false);
+		GeologyEditorSession.OreSourceGroup disabledAgain = group(session, "orespawn:diamond");
+		assertFalse(disabledAgain.hasManagedPlacementSource());
+		assertTrue(disabledAgain.placements.isEmpty());
+	}
+
+	@Test
+	void vanillaAliasMoveRequiresVanillaManagementAndNeverChangesOwnershipWhenBlocked() {
+		GeologyEditorSession session = new GeologyEditorSession(profileWithNativeDiamondOre());
+		String customKey = session.addOreMaterialGroup();
+		String customMaterial = customKey.substring(0, customKey.indexOf('|'));
+
+		assertEquals("orespawn:diamond", session.oreDictionaryOwner("oreDiamond"));
+		assertTrue(session.vanillaOreManagementRequiredForAliasMove(customMaterial, "oreDiamond"));
+		assertFalse(session.addOreMaterialAlias(customMaterial, "oreDiamond", true));
+		assertEquals("orespawn:diamond", session.oreDictionaryOwner("oreDiamond"));
+
+		session.setManageVanillaOres(true);
+		assertFalse(session.vanillaOreManagementRequiredForAliasMove(customMaterial, "oreDiamond"));
+		assertTrue(session.addOreMaterialAlias(customMaterial, "oreDiamond", true));
+		assertEquals(customMaterial, session.oreDictionaryOwner("oreDiamond"));
+		assertTrue(group(session, customMaterial).hasManagedPlacementSource());
+	}
+
+	@Test
 	void balancedSingleAndCustomModesKeepOneExplicitOutputPolicy() {
 		GeologyEditorSession session = new GeologyEditorSession(profileWithTwoOreOutputs());
 		String key = session.oreSourceGroups().get(0).key;
@@ -441,6 +489,36 @@ class GeologyEditorSessionTest {
 		policy.getAsJsonArray("candidates").add(candidate("baseminerals:sulfur",
 				"baseminerals", "minecraft:gold_ore", "orespawn:standard", false));
 		return WorldGeologyProfile.fromJson(root, WorldGeologyProfile.recommended(false));
+	}
+
+	private static WorldGeologyProfile profileWithNativeDiamondOre() {
+		WorldGeologyProfile recommended = WorldGeologyProfile.recommended(false);
+		JsonObject root = recommended.rootCopy();
+		root.addProperty("manage_vanilla_ores", false);
+		JsonObject ore = new JsonObject();
+		ore.addProperty("enabled", true);
+		ore.addProperty("source_mod", "minecraft");
+		ore.addProperty("native_generation", true);
+		ore.addProperty("block", "minecraft:diamond_ore");
+		JsonObject rule = new JsonObject();
+		rule.addProperty("enabled", true);
+		rule.addProperty("pattern", "vein");
+		JsonObject dimensions = new JsonObject();
+		dimensions.add("minecraft:overworld", rule);
+		ore.add("dimensions", dimensions);
+		JsonObject ores = new JsonObject();
+		ores.add("minecraft:diamond_ore", ore);
+		root.add("ores", ores);
+		root.add("ore_source_policies", new JsonObject());
+		return WorldGeologyProfile.fromGlobalConfig(root,
+				recommended.geologyMode(), recommended.placeFluidDeposits());
+	}
+
+	private static GeologyEditorSession.OreSourceGroup group(
+			GeologyEditorSession session, String material) {
+		return session.oreSourceGroups().stream()
+				.filter(group -> material.equals(group.material))
+				.findFirst().orElseThrow(() -> new AssertionError("Missing group " + material));
 	}
 
 	private static JsonObject candidate(String sourceId, String owner, String registryId,

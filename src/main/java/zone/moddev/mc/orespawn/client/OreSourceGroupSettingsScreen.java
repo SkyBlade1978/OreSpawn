@@ -26,6 +26,7 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 	private final GeologyEditorSession session;
 	private final String groupKey;
 	private String pendingAliasMove;
+	private String pendingAliasValue;
 	private String error;
 	private int aliasScroll;
 	private int placementScroll;
@@ -73,6 +74,7 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 			if (group.curated) {
 				session.resetOreMaterialGroup(group.material);
 				pendingAliasMove = null;
+				pendingAliasValue = null;
 				error = null;
 				rebuild();
 			} else {
@@ -103,6 +105,7 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 				syncName();
 				session.removeOreMaterialAlias(group.material, aliases.get(index));
 				pendingAliasMove = null;
+				pendingAliasValue = null;
 				error = null;
 				captureScroll();
 				rebuild();
@@ -122,6 +125,8 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 		if (pendingAliasMove != null) {
 			int split = pendingAliasMove.indexOf('|');
 			aliasField.setValue(split < 0 ? pendingAliasMove : pendingAliasMove.substring(0, split));
+		} else if (pendingAliasValue != null) {
+			aliasField.setValue(pendingAliasValue);
 		}
 		Button add = addButton(new Button(contentX + contentWidth - 41, addAliasY, 41, 20,
 				new TextComponentString(pendingAliasMove == null ? "+"
@@ -206,8 +211,16 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 		String alias = aliasField == null ? "" : aliasField.getValue().trim();
 		String owner = session.oreDictionaryOwner(alias);
 		String move = owner == null || owner.equals(group.material) ? null : alias + '|' + owner;
+		if (move != null && session.vanillaOreManagementRequiredForAliasMove(group.material, alias)) {
+			pendingAliasMove = null;
+			pendingAliasValue = alias;
+			error = I18n.format("error.orespawn.ore_source.manage_vanilla_first");
+			rebuild();
+			return;
+		}
 		if (move != null && !move.equals(pendingAliasMove)) {
 			pendingAliasMove = move;
+			pendingAliasValue = alias;
 			error = I18n.format("error.orespawn.ore_source.alias_owned",
 					OreSourceListScreen.display(owner));
 			rebuild();
@@ -218,6 +231,7 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 			return;
 		}
 		pendingAliasMove = null;
+		pendingAliasValue = null;
 		error = null;
 		rebuild();
 	}

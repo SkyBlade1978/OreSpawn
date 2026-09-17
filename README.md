@@ -78,6 +78,10 @@ a channel is fixed, selectable, missing, or inactive under Keep Original.
 Existing worlds start in
 Keep Original until their owner explicitly changes a group. Third-party generators remain outside
 OreSpawn's control and are clearly reported rather than disabled.
+Native vanilla outputs become controllable placement sources only while
+**Manage Vanilla Ores** is enabled. Ore Sources updates immediately when that
+option changes, and Group Settings prevents moving a vanilla ore alias while
+management is off, with a prompt to enable it first.
 
 Important files:
 

@@ -443,6 +443,7 @@ tooltip.orespawn.ore_source.reset_group=恢复此预设分组的名称和矿物�
 tooltip.orespawn.ore_source.delete_group=删除此自定义分组，不重写已生成的区块。
 error.orespawn.ore_source.alias=请使用准确的矿物词典名称，例如 oreSulfur。
 error.orespawn.ore_source.alias_owned=%s 已拥有此条目。按“移动”可重新分配。
+error.orespawn.ore_source.manage_vanilla_first=将原版矿石移入其他分组前，请先启用“管理原版矿石”。
 error.orespawn.ore_source.defaults_write=无法保存材料分组默认值。
 screen.orespawn.ore_source.group_settings=矿石来源分组设置
 label.orespawn.ore_source.groups=分组

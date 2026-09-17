@@ -443,6 +443,7 @@ tooltip.orespawn.ore_source.reset_group=이 선별 그룹의 이름과 광석 �
 tooltip.orespawn.ore_source.delete_group=생성된 청크를 다시 쓰지 않고 이 사용자 지정 그룹을 삭제합니다.
 error.orespawn.ore_source.alias=oreSulfur 같은 정확한 광석 사전 이름을 사용하세요.
 error.orespawn.ore_source.alias_owned=%s에서 이미 이 항목을 소유합니다. 이동을 눌러 재할당하세요.
+error.orespawn.ore_source.manage_vanilla_first=바닐라 광석을 다른 그룹으로 이동하기 전에 바닐라 광석 관리를 활성화하세요.
 error.orespawn.ore_source.defaults_write=재료 그룹 기본값을 저장하지 못했습니다.
 screen.orespawn.ore_source.group_settings=광석 소스 그룹 설정
 label.orespawn.ore_source.groups=그룹

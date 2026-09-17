@@ -443,6 +443,7 @@ tooltip.orespawn.ore_source.reset_group=この既定グループの名前と鉱�
 tooltip.orespawn.ore_source.delete_group=生成済みチャンクを書き換えずに、このカスタムグループを削除します。
 error.orespawn.ore_source.alias=oreSulfur のような正確な鉱石辞書名を使用してください。
 error.orespawn.ore_source.alias_owned=%s がこのエントリを既に所有しています。再割り当てするには「移動」を押してください。
+error.orespawn.ore_source.manage_vanilla_first=バニラ鉱石を別のグループへ移動する前に、「バニラ鉱石を管理」を有効にしてください。
 error.orespawn.ore_source.defaults_write=素材グループの既定値を保存できませんでした。
 screen.orespawn.ore_source.group_settings=鉱石ソースグループ設定
 label.orespawn.ore_source.groups=グループ

@@ -443,6 +443,7 @@ tooltip.orespawn.ore_source.reset_group=Restaura o nome e as entradas do dicion�
 tooltip.orespawn.ore_source.delete_group=Exclui este grupo personalizado sem reescrever os chunks gerados.
 error.orespawn.ore_source.alias=Use um nome exato do dicionário de minérios, como oreSulfur.
 error.orespawn.ore_source.alias_owned=%s já possui esta entrada. Pressione Mover para transferi-la.
+error.orespawn.ore_source.manage_vanilla_first=Ative Gerenciar minérios vanilla antes de mover um minério vanilla nativo para outro grupo.
 error.orespawn.ore_source.defaults_write=Não foi possível salvar os padrões dos grupos de materiais.
 screen.orespawn.ore_source.group_settings=Configurações do grupo de fontes de minério
 label.orespawn.ore_source.groups=Grupos
