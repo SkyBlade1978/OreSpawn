@@ -50,12 +50,15 @@ safely instead of breaking world creation.
   scrolling lists keep every discovered group on the left and the deduplicated
   union of installed ore blocks represented by its aliases on the right:
   **Balanced** shares them equally, **Single** uses one, **Custom** enables a
-  weighted subset, and **Keep Original** preserves every old placement rule.
+  weighted subset, and **Keep Original** preserves every old placement rule and
+  restores the output and placement selections present when the editor opened.
   Groups needing attention sort first. The cog beside a group opens its friendly
   name, Ore Dictionary aliases and **Placement Rules**. Outputs decide which
   block is used; Placement Rules decide the frequency, shape, depth and host
   restrictions for each managed channel. A single managed source is read-only;
-  multiple managed sources can be selected. Independent external generators
+  multiple managed sources can be selected. The screen states whether each
+  channel is fixed, selectable, missing, or inactive under Keep Original.
+  Independent external generators
   are explained but never offered as controllable placement sources.
 - **Mods** opens a paginated directory of loaded OreSpawn integrations. It
   reports the Forge mod version, native OS4 or legacy OS1-OS3 lineage, provider

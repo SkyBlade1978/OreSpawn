@@ -16,7 +16,11 @@ Version 4.1.0.110021
 * Add Keep Original, Balanced, Single and Custom output modes. Reviewed fresh
   MMD conflicts balance every eligible output through one placement budget;
   inactive provider definitions remain selectable outputs without contributing
-  another placement rule.
+  another placement rule. Returning to Keep Original restores the output and
+  placement selections from when the editor was opened.
+* Keep tooltips inside the available side of the screen and wrap Placement
+  Rules guidance above the list, with an explicit fixed, selectable, missing or
+  Keep Original status instead of an unexplained disabled control.
 * Ship curated Sulfur/Sulphur and Aluminum/Aluminium groups, keep Niter and
   Saltpeter distinct, deduplicate identical registry states, and allow confirmed
   alias reassignment plus stable custom groups. Group edits are saved to the

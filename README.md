@@ -68,8 +68,10 @@ shape, depth and host restrictions for each managed channel. New worlds balance
 all eligible outputs in reviewed MMD conflicts while running one placement
 budget, so sulfur/sulphur providers do not multiply abundance. **Single**
 chooses one output, **Custom** allows a weighted subset, and **Keep Original**
-preserves every active rule. Existing worlds start in Keep Original until their
-owner explicitly changes a group. Third-party generators remain outside
+preserves every active rule and restores the selections that were present when
+the editor was opened. Placement Rules states whether a channel is fixed,
+selectable, missing, or inactive under Keep Original. Existing worlds start in
+Keep Original until their owner explicitly changes a group. Third-party generators remain outside
 OreSpawn's control and are clearly reported rather than disabled.
 
 Important files:

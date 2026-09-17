@@ -127,8 +127,8 @@ class OreSpawnScreenLayoutTest {
 
 	@Test
 	void groupSettingsOwnsAliasesAndClearlyNamedPlacementRules() throws Exception {
-		assertEquals(48, OreSourceGroupSettingsScreen.aliasListHeight(265));
-		assertEquals(32, OreSourceGroupSettingsScreen.aliasListHeight(240));
+		assertEquals(32, OreSourceGroupSettingsScreen.aliasListHeight(265));
+		assertEquals(16, OreSourceGroupSettingsScreen.aliasListHeight(240));
 		String settings = screenSource("OreSourceGroupSettingsScreen.java");
 		assertTrue(settings.contains("option.orespawn.ore_source.group_name"));
 		assertTrue(settings.contains("option.orespawn.ore_source.alias"));
@@ -139,6 +139,14 @@ class OreSpawnScreenLayoutTest {
 		assertTrue(screenSource("OreSourceListScreen.java").contains("!candidate.external"));
 		assertTrue(settings.contains("minecraft.displayGuiScreen(parent)"));
 		assertFalse(settings.contains("button.orespawn.ore_source.advanced"));
+	}
+
+	@Test
+	void tooltipsFitBesideTheCursorInsteadOfRunningOffScreen() {
+		assertEquals(260, OreSpawnScreen.tooltipWidth(426, 300));
+		assertEquals(189, OreSpawnScreen.tooltipWidth(426, 213));
+		assertEquals(136, OreSpawnScreen.tooltipWidth(320, 160));
+		assertEquals(96, OreSpawnScreen.tooltipWidth(240, 120));
 	}
 
 	@Test

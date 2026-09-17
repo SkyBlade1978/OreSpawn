@@ -159,7 +159,8 @@ public final class ClientProbeTestMod {
 					}
 					break;
 				case 7:
-					if (minecraft.world == null && !minecraft.isIntegratedServerRunning() && stateTicks >= 20) {
+					if (!minecraft.isIntegratedServerRunning() && stateTicks >= 20) {
+						if (minecraft.world != null) minecraft.loadWorld(null);
 						minecraft.launchIntegratedServer(WORLD_DIRECTORY, "OreSpawn Client Smoke",
 								new WorldSettings(0L, GameType.CREATIVE, false, false, WorldType.DEFAULT));
 						nextState(8);
@@ -173,7 +174,8 @@ public final class ClientProbeTestMod {
 					}
 					break;
 				case 9:
-					if (minecraft.world == null && !minecraft.isIntegratedServerRunning()) {
+					if (!minecraft.isIntegratedServerRunning() && stateTicks >= 20) {
+						if (minecraft.world != null) minecraft.loadWorld(null);
 						writeMarker();
 						minecraft.shutdown();
 						nextState(10);
@@ -323,16 +325,21 @@ public final class ClientProbeTestMod {
 		settings.setWorldAndResolution(minecraft, 426, 265);
 		int compactLists = 0;
 		boolean sulfurName = false;
+		int lowestListBottom = 0;
 		for (GuiButton widget : settings.buttons) {
-			if (widget instanceof CompactScrollList) compactLists++;
+			if (widget instanceof CompactScrollList) {
+				compactLists++;
+				lowestListBottom = Math.max(lowestListBottom, widget.yPosition + widget.height);
+			}
 			if (widget instanceof TextFieldWidget
 					&& "Sulfur".equals(((TextFieldWidget) widget).getValue())) sulfurName = true;
 		}
 		if (compactLists != 2 || !sulfurName
+				|| lowestListBottom > 233
 				|| !OreSourceGroupSettingsScreen.placementChannels(sulfurGroup)
 						.contains("orespawn:standard")) {
 			throw new IllegalStateException("Group Settings did not expose aliases and placement rules: lists="
-					+ compactLists + ", name=" + sulfurName + ", channels="
+					+ compactLists + ", name=" + sulfurName + ", listBottom=" + lowestListBottom + ", channels="
 					+ OreSourceGroupSettingsScreen.placementChannels(sulfurGroup));
 		}
 		oreSourcesLayoutValidated = true;
@@ -488,12 +495,10 @@ public final class ClientProbeTestMod {
 	}
 
 	private static void stopIntegratedServer(Minecraft minecraft) {
-		// Match GuiIngameMenu's target-native disconnect path. loadWorld(null)
-		// coordinates the integrated-server save/stop; installing the replacement
-		// screen in the same tick prevents EntityRenderer from seeing no world and
-		// no screen between frames.
+		// Ask the integrated server to stop while retaining the client world until
+		// the server and its queued play packets have drained. Clearing the world in
+		// this tick races Forge 1.10 packet tasks against a null client world.
 		if (minecraft.world != null) minecraft.world.sendQuittingDisconnectingPacket();
-		minecraft.loadWorld(null);
 		minecraft.displayGuiScreen(new GuiMainMenu());
 	}
 

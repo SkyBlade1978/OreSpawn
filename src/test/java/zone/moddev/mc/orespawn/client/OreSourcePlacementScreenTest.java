@@ -46,6 +46,15 @@ class OreSourcePlacementScreenTest {
 		assertFalse(OreSourceGroupSettingsScreen.placementSelectable(
 				group("keep_separate", Arrays.asList(first, second), Collections.emptyMap()),
 				"orespawn:standard"));
+		assertEquals(0xFFFF55, OreSourceGroupSettingsScreen.placementStatusColor(
+				group("consolidated", Collections.singletonList(first), Collections.emptyMap()),
+				Collections.singletonList("orespawn:standard")));
+		assertEquals(0x55FF55, OreSourceGroupSettingsScreen.placementStatusColor(
+				group("consolidated", Arrays.asList(first, second), Collections.emptyMap()),
+				Collections.singletonList("orespawn:standard")));
+		assertEquals(0xA0A0A0, OreSourceGroupSettingsScreen.placementStatusColor(
+				group("keep_separate", Arrays.asList(first, second), Collections.emptyMap()),
+				Collections.singletonList("orespawn:standard")));
 	}
 
 	private static OreSourceCandidate candidate(String source, String channel,

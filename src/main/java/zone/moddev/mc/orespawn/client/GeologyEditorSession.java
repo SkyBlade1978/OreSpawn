@@ -602,6 +602,43 @@ final class GeologyEditorSession {
 		refreshOreSourceStatus(policy);
 	}
 
+	void restoreOreSourceOriginalMode(String key) {
+		JsonObject policy = objectEntry(section("ore_source_policies"), key);
+		JsonObject originalPolicies = object(original, "ore_source_policies");
+		JsonObject originalPolicy = originalPolicies.has(key) && originalPolicies.get(key).isJsonObject()
+				? originalPolicies.getAsJsonObject(key) : null;
+		policy.addProperty("mode", "keep_separate");
+		if (originalPolicy != null) {
+			policy.addProperty("output_mode", outputMode(originalPolicy));
+			policy.add("outputs", sectionCopy(originalPolicy, "outputs"));
+			policy.add("placement_sources", sectionCopy(originalPolicy, "placement_sources"));
+		} else {
+			JsonObject outputs = new JsonObject();
+			JsonObject placements = new JsonObject();
+			if (policy.has("candidates") && policy.get("candidates").isJsonArray()) {
+				for (JsonElement element : policy.getAsJsonArray("candidates")) {
+					if (!element.isJsonObject()) continue;
+					JsonObject candidate = element.getAsJsonObject();
+					if (!bool(candidate, "loaded", false)
+							|| !bool(candidate, "placement_active", false)
+							|| bool(candidate, "external", false)
+							|| bool(candidate, "enrichment", false)) continue;
+					String sourceId = string(candidate, "source_id", "");
+					String channel = string(candidate, "placement_channel", "orespawn:standard");
+					if (!sourceId.isEmpty()) outputs.addProperty(sourceId, 1.0D);
+					if (!sourceId.isEmpty() && !placements.has(channel)) {
+						placements.addProperty(channel, sourceId);
+					}
+				}
+			}
+			policy.addProperty("output_mode", "custom");
+			policy.add("outputs", outputs);
+			policy.add("placement_sources", placements);
+		}
+		policy.addProperty("review_required", false);
+		refreshOreSourceStatus(policy);
+	}
+
 	void setOreSourceOutputMode(String key, String outputMode) {
 		if (!"balanced".equals(outputMode) && !"single".equals(outputMode)
 				&& !"custom".equals(outputMode)) return;

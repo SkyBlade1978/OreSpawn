@@ -233,7 +233,7 @@ final class OreSourceListScreen extends OreSpawnScreen {
 		if ("keep_separate".equals(group.mode)) session.setOreSourceOutputMode(group.key, "balanced");
 		else if ("balanced".equals(group.outputMode)) session.setOreSourceOutputMode(group.key, "single");
 		else if ("single".equals(group.outputMode)) session.setOreSourceOutputMode(group.key, "custom");
-		else session.setOreSourceMode(group.key, false);
+		else session.restoreOreSourceOriginalMode(group.key);
 	}
 
 	private boolean syncWeights() {

@@ -296,6 +296,28 @@ class GeologyEditorSessionTest {
 		assertEquals(2.5D, custom.outputs.get("baseminerals:sulfur").doubleValue());
 	}
 
+	@Test
+	void keepOriginalRestoresThePolicySnapshotFromWhenTheEditorOpened() {
+		GeologyEditorSession session = new GeologyEditorSession(profileWithTwoOreOutputs());
+		GeologyEditorSession.OreSourceGroup original = session.oreSourceGroups().get(0);
+		String key = original.key;
+
+		session.setOreSourceOutputMode(key, "custom");
+		session.setOreSourceOutput(key, "mineralogy:sulfur", false, 1.0D);
+		session.setOreSourceOutput(key, "baseminerals:sulfur", true, 4.5D);
+		session.setOreSourcePlacement(key, "orespawn:standard", "baseminerals:sulfur");
+		GeologyEditorSession.OreSourceGroup edited = session.oreSourceGroups().get(0);
+		assertEquals(java.util.Collections.singleton("baseminerals:sulfur"), edited.outputs.keySet());
+		assertEquals("baseminerals:sulfur", edited.placements.get("orespawn:standard"));
+
+		session.restoreOreSourceOriginalMode(key);
+		GeologyEditorSession.OreSourceGroup restored = session.oreSourceGroups().get(0);
+		assertEquals("keep_separate", restored.mode);
+		assertEquals(original.outputMode, restored.outputMode);
+		assertEquals(original.outputs, restored.outputs);
+		assertEquals(original.placements, restored.placements);
+	}
+
 	private static WorldGeologyProfile profileWithOreSourcePolicy() {
 		JsonObject root = WorldGeologyProfile.recommended(false).toJson();
 		JsonObject policy = new JsonObject();

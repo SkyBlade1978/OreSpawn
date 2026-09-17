@@ -234,7 +234,9 @@ Consolidated policies also store `output_mode` as `balanced`, `single`, or
 `custom`, selected output rule IDs with positive weights, and one active
 placement-source rule per placement channel. Balanced uses equal weights,
 Single has exactly one output, and Custom accepts any non-empty positively
-weighted subset. The UI calls `keep_separate` **Keep Original**.
+weighted subset. The UI calls `keep_separate` **Keep Original**. Returning to
+Keep Original restores the output weights and placement-source selections from
+the profile snapshot taken when the editor was opened.
 
 The Ore Sources screen keeps compact scrollable group and output lists visible
 together. Use a group's cog for its friendly name, Ore Dictionary aliases and
@@ -244,7 +246,8 @@ frequency, shape, depth and host restrictions for each channel. `orespawn:standa
 is shown as **Standard veins**; exact custom-channel IDs remain available in
 tooltips. A sole active managed source is read-only, multiple active managed
 sources are selectable, and independent external generators are never offered
-as placement owners.
+as placement owners. The settings screen labels that state explicitly and wraps
+its purpose and status above the placement list at compact resolutions.
 
 Consolidation runs the chosen placement rule's pattern, hosts, filters, height
 and frequency once; selected candidates contribute output bundles only. An

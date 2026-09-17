@@ -34,6 +34,10 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 	private int addAliasY;
 	private int placementLabelY;
 	private int placementListY;
+	private int placementStatusY;
+	private List<String> placementExplanationLines = java.util.Collections.emptyList();
+	private List<String> placementStatusLines = java.util.Collections.emptyList();
+	private int placementStatusColor = 0xA0A0A0;
 	private TextFieldWidget nameField;
 	private TextFieldWidget aliasField;
 	private CompactScrollList aliasList;
@@ -125,9 +129,13 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 						: I18n.format("button.orespawn.ore_source.move")), button -> addAlias(group)));
 		OreSpawnScreenLayout.explain(this, add, "tooltip.orespawn.ore_source.alias");
 
-		placementLabelY = addAliasY + 27;
-		placementListY = placementLabelY + 22;
 		final List<String> channels = placementChannels(group);
+		placementLabelY = addAliasY + 27;
+		placementExplanationLines = wrap(I18n.format("label.orespawn.ore_source.placement_explanation"));
+		placementStatusLines = wrap(placementStatus(group, channels));
+		placementStatusY = placementLabelY + 11 + (placementExplanationLines.size() * 10);
+		placementListY = placementStatusY + (placementStatusLines.size() * 10) + 3;
+		placementStatusColor = placementStatusColor(group, channels);
 		placementList = addButton(new CompactScrollList(this, contentX, placementListY,
 				contentWidth, Math.max(16, height - 32 - placementListY)) {
 			@Override protected int size() { return channels.size(); }
@@ -139,11 +147,17 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 				String source = choice < 0
 						? I18n.format("label.orespawn.ore_source.missing")
 						: OreSourceListScreen.candidateLabel(choices.get(choice));
-				return channelLabel(channel) + ": " + source;
+				return channelLabel(channel) + (placementSelectable(group, channel) ? " > " : " = ") + source;
 			}
 			@Override protected boolean rowEnabled(int index) {
 				String channel = channels.get(index);
 				return placementSelectable(group, channel);
+			}
+			@Override protected int rowColor(int index) {
+				String channel = channels.get(index);
+				List<OreSourceCandidate> choices = OreSourceListScreen.placementCandidates(group, channel);
+				return choices.isEmpty() ? 0x777777
+						: placementSelectable(group, channel) ? 0xFFFFFF : 0xC0C0C0;
 			}
 			@Override protected void onRowPressed(int index) {
 				String channel = channels.get(index);
@@ -228,7 +242,11 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 	}
 
 	static int aliasListHeight(int height) {
-		return height >= 260 ? 48 : 32;
+		return height >= 260 ? 32 : 16;
+	}
+
+	private List<String> wrap(String text) {
+		return font.listFormattedStringToWidth(text, Math.max(80, contentWidth - 4));
 	}
 
 	static List<String> placementChannels(OreSourceGroup group) {
@@ -246,6 +264,33 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 	static boolean placementSelectable(OreSourceGroup group, String channel) {
 		return !"keep_separate".equals(group.mode)
 				&& OreSourceListScreen.placementCandidates(group, channel).size() > 1;
+	}
+
+	static String placementStatus(OreSourceGroup group, List<String> channels) {
+		if (channels.isEmpty()) return I18n.format("label.orespawn.ore_source.no_placement_rules");
+		if ("keep_separate".equals(group.mode)) {
+			return I18n.format("tooltip.orespawn.ore_source.placement_requires_consolidated");
+		}
+		boolean selectable = false;
+		for (String channel : channels) {
+			int choices = OreSourceListScreen.placementCandidates(group, channel).size();
+			if (choices == 0) return I18n.format("tooltip.orespawn.ore_source.placement_missing");
+			selectable |= choices > 1;
+		}
+		return I18n.format(selectable ? "tooltip.orespawn.ore_source.placement_select"
+				: "tooltip.orespawn.ore_source.placement_readonly");
+	}
+
+	static int placementStatusColor(OreSourceGroup group, List<String> channels) {
+		if (channels.isEmpty()) return 0x777777;
+		if ("keep_separate".equals(group.mode)) return 0xA0A0A0;
+		for (String channel : channels) {
+			if (OreSourceListScreen.placementCandidates(group, channel).isEmpty()) return 0xFF5555;
+		}
+		for (String channel : channels) {
+			if (placementSelectable(group, channel)) return 0x55FF55;
+		}
+		return 0xFFFF55;
 	}
 
 	@Override
@@ -278,10 +323,16 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 				contentX + 2, 59, 0xA0A0A0);
 		drawString(font, new TextComponentTranslation("label.orespawn.ore_source.placement_rules"),
 				contentX + 2, placementLabelY, 0xFFFFFF);
-		String explanation = I18n.format("label.orespawn.ore_source.placement_explanation");
-		drawString(font, new TextComponentString(OreSpawnScreenLayout.fit(font,
-				new TextComponentString(explanation), contentWidth - 4)),
-				contentX + 2, placementLabelY + 10, 0xA0A0A0);
+		int lineY = placementLabelY + 10;
+		for (String line : placementExplanationLines) {
+			drawString(font, new TextComponentString(line), contentX + 2, lineY, 0xA0A0A0);
+			lineY += 10;
+		}
+		lineY = placementStatusY;
+		for (String line : placementStatusLines) {
+			drawString(font, new TextComponentString(line), contentX + 2, lineY, placementStatusColor);
+			lineY += 10;
+		}
 		if (error != null) {
 			drawCenteredString(font, new TextComponentString(OreSpawnScreenLayout.fit(font,
 					new TextComponentString(error), width - 24)), width / 2, 19, 0xFF5555);
@@ -290,11 +341,6 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 		if (group != null && group.oreDictionaryEntries.isEmpty()) {
 			drawCenteredString(font, new TextComponentTranslation("label.orespawn.ore_source.no_aliases"),
 					contentX + (contentWidth / 2), ALIAS_TOP + 4, 0x777777);
-		}
-		if (group != null && placementChannels(group).isEmpty()) {
-			drawCenteredString(font,
-					new TextComponentTranslation("label.orespawn.ore_source.no_placement_rules"),
-					contentX + (contentWidth / 2), placementListY + 4, 0x777777);
 		}
 		super.render(mouseX, mouseY, partialTick);
 		OreSpawnScreenLayout.renderExplanations(this, mouseX, mouseY);
