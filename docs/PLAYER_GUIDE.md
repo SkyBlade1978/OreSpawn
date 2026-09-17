@@ -56,7 +56,10 @@ safely instead of breaking world creation.
   weighted subset, and **Keep Original** preserves every old placement rule and
   restores the output and placement selections present when the editor opened.
   Groups needing attention sort first. Saving a consolidated rule clears that
-  attention state. The cog beside a group opens its friendly
+  attention state. To keep an unchanged red Keep Original policy, press
+  **Accept**; it marks the group reviewed without changing its outputs or
+  placement rules. It is saved only when the main editor's **Done** is used.
+  The cog beside a group opens its friendly
   name, Ore Dictionary aliases and **Placement Rules**. Outputs decide which
   block is used; Placement Rules decide the frequency, shape, depth and host
   restrictions for each managed channel. A single managed source is read-only;

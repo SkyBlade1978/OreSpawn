@@ -82,12 +82,14 @@ final class OreSourceListScreen extends OreSpawnScreen {
 		}));
 		OreSpawnScreenLayout.explain(this, add, "button.orespawn.ore_source.add_group");
 		int showX = addX + 20;
-		int showWidth = Math.max(38, leftPaneX + leftPaneWidth - showX);
+		String showLabel = I18n.format(showAll
+				? "button.orespawn.ore_source.hide_single"
+				: "button.orespawn.show_all");
+		int showWidth = compactFilterWidth(leftPaneX + leftPaneWidth - showX,
+				font.getStringWidth(showLabel));
 		Button show = addButton(OreSpawnScreenLayout.button(this, font,
 				showX, 4, showWidth, 16,
-				new TextComponentTranslation(showAll
-						? "button.orespawn.ore_source.hide_single"
-						: "button.orespawn.show_all"), button -> {
+				new TextComponentString(showLabel), button -> {
 			if (!syncWeights()) return;
 			captureScroll();
 			showAll = !showAll;
@@ -158,8 +160,13 @@ final class OreSourceListScreen extends OreSpawnScreen {
 			return;
 		}
 		String mode = "keep_separate".equals(group.mode) ? "keep_original" : group.outputMode;
+		String acceptLabel = I18n.format("button.orespawn.ore_source.accept");
+		int acceptWidth = group.needsReview()
+				? Math.min(Math.max(42, font.getStringWidth(acceptLabel) + 10), rightPaneWidth / 3)
+				: 0;
+		int modeWidth = rightPaneWidth - (acceptWidth == 0 ? 0 : acceptWidth + 4);
 		Button modeButton = addButton(OreSpawnScreenLayout.button(this, font,
-				rightPaneX, CONTENT_TOP, rightPaneWidth, 20,
+				rightPaneX, CONTENT_TOP, modeWidth, 20,
 				new TextComponentTranslation("option.orespawn.ore_source.output_mode",
 						new TextComponentTranslation("mode.orespawn.ore_source." + mode).getFormattedText()),
 				button -> {
@@ -169,6 +176,18 @@ final class OreSourceListScreen extends OreSpawnScreen {
 					rebuild();
 				}));
 		OreSpawnScreenLayout.explain(this, modeButton, "tooltip.orespawn.ore_source.output_mode");
+		if (acceptWidth > 0) {
+			Button accept = addButton(OreSpawnScreenLayout.button(this, font,
+					rightPaneX + modeWidth + 4, CONTENT_TOP, acceptWidth, 20,
+					new TextComponentString(acceptLabel), button -> {
+						if (!syncWeights()) return;
+						captureScroll();
+						session.acceptOreSourcePolicy(group.key);
+						error = null;
+						rebuild();
+					}));
+			OreSpawnScreenLayout.explain(this, accept, "tooltip.orespawn.ore_source.accept");
+		}
 
 		visibleCandidates = group.outputCandidates();
 		final List<OreSourceCandidate> candidates = visibleCandidates;
@@ -413,6 +432,10 @@ final class OreSourceListScreen extends OreSpawnScreen {
 
 	static int listHeight(int height) {
 		return Math.max(32, (height - 32) - CONTENT_TOP);
+	}
+
+	static int compactFilterWidth(int availableWidth, int labelWidth) {
+		return Math.min(Math.max(38, labelWidth + 10), Math.max(16, availableWidth));
 	}
 
 	@Override

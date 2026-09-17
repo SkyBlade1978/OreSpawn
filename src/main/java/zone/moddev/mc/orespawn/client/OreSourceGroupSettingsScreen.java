@@ -19,8 +19,9 @@ import net.minecraft.util.text.TextComponentTranslation;
 /** Infrequent group metadata and placement ownership controls opened by the group cog. */
 final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 	private static final int MARGIN = 10;
-	private static final int NAME_TOP = 35;
-	private static final int ALIAS_TOP = 70;
+	private static final int NAME_TOP = 24;
+	private static final int ALIAS_LABEL_TOP = 48;
+	private static final int ALIAS_TOP = 58;
 	private final GuiScreen parent;
 	private final GeologyEditorSession session;
 	private final String groupKey;
@@ -57,9 +58,11 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 		contentWidth = Math.max(240, Math.min(600, width - (MARGIN * 2)));
 		contentX = (width - contentWidth) / 2;
 		int actionWidth = Math.min(78, Math.max(55, contentWidth / 4));
+		int nameLabelWidth = font.getStringWidth(
+				I18n.format("option.orespawn.ore_source.group_name")) + 8;
 
-		nameField = addButton(new TextFieldWidget(font, contentX, NAME_TOP,
-				contentWidth - actionWidth - 5, 20,
+		nameField = addButton(new TextFieldWidget(font, contentX + nameLabelWidth, NAME_TOP,
+				contentWidth - nameLabelWidth - actionWidth - 5, 20,
 				new TextComponentTranslation("option.orespawn.ore_source.group_name")));
 		nameField.setMaxLength(64);
 		nameField.setValue(group.displayName);
@@ -244,7 +247,7 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 	}
 
 	static int aliasListHeight(int height) {
-		return height >= 260 ? 48 : 32;
+		return height >= 260 ? 80 : 64;
 	}
 
 	static List<String> placementChannels(OreSourceGroup group) {
@@ -304,9 +307,9 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 		renderBackground();
 		drawCenteredString(font, title, width / 2, 8, 0xFFFFFF);
 		drawString(font, new TextComponentTranslation("option.orespawn.ore_source.group_name"),
-				contentX + 2, 24, 0xA0A0A0);
+				contentX + 2, NAME_TOP + 6, 0xA0A0A0);
 		drawString(font, new TextComponentTranslation("label.orespawn.ore_source.aliases"),
-				contentX + 2, 59, 0xA0A0A0);
+				contentX + 2, ALIAS_LABEL_TOP, 0xA0A0A0);
 		drawString(font, new TextComponentTranslation("label.orespawn.ore_source.placement_rules"),
 				contentX + 2, placementLabelY, 0xFFFFFF);
 		if (error != null) {

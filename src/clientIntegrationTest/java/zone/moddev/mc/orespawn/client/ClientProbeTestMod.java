@@ -308,18 +308,24 @@ public final class ClientProbeTestMod {
 		boolean inlineAdministration = false;
 		boolean back = false;
 		boolean showAll = false;
+		int showAllWidth = 0;
 		for (GuiButton widget : screen.buttons) {
 			String caption = TextFormatting.getTextWithoutFormattingCodes(widget.displayString);
 			if (widget instanceof CompactScrollList && widget.xPosition < right) groupList = true;
 			if (widget instanceof CompactScrollList && widget.xPosition >= right) outputList = true;
 			if (widget instanceof TextFieldWidget && widget.xPosition < right) inlineAdministration = true;
 			if ("Back".equals(caption)) back = true;
-			if (I18n.format("button.orespawn.show_all").equals(caption)) showAll = true;
+			if (I18n.format("button.orespawn.show_all").equals(caption)) {
+				showAll = true;
+				showAllWidth = widget.width;
+			}
 		}
-		if (!groupList || !outputList || inlineAdministration || back || !showAll) {
+		if (!groupList || !outputList || inlineAdministration || back || !showAll
+				|| showAllWidth >= OreSourceListScreen.leftPaneWidth(426) / 2) {
 			throw new IllegalStateException("Ore Sources was not one compact two-pane screen: groups="
 					+ groupList + ", outputs=" + outputList + ", inlineAdministration="
 					+ inlineAdministration + ", back=" + back + ", showAll=" + showAll
+					+ ", showAllWidth=" + showAllWidth
 					+ ", left=" + left + ", right=" + right);
 		}
 
@@ -334,23 +340,71 @@ public final class ClientProbeTestMod {
 		int compactLists = 0;
 		boolean sulfurName = false;
 		int lowestListBottom = 0;
+		int aliasRows = 0;
+		int placementRows = 0;
 		for (GuiButton widget : settings.buttons) {
 			if (widget instanceof CompactScrollList) {
 				compactLists++;
 				lowestListBottom = Math.max(lowestListBottom, widget.yPosition + widget.height);
+				if (widget.yPosition < 100) aliasRows = CompactScrollList.visibleRows(widget.height, 16);
+				else placementRows = CompactScrollList.visibleRows(widget.height, 16);
 			}
 			if (widget instanceof TextFieldWidget
 					&& "Sulfur".equals(((TextFieldWidget) widget).getValue())) sulfurName = true;
 		}
-		if (compactLists != 2 || !sulfurName
+		if (compactLists != 2 || !sulfurName || aliasRows < 5 || placementRows < 3
 				|| lowestListBottom > 233
 				|| !OreSourceGroupSettingsScreen.placementChannels(sulfurGroup)
 						.contains("orespawn:standard")) {
 			throw new IllegalStateException("Group Settings did not expose aliases and placement rules: lists="
-					+ compactLists + ", name=" + sulfurName + ", listBottom=" + lowestListBottom + ", channels="
+					+ compactLists + ", name=" + sulfurName + ", aliasRows=" + aliasRows
+					+ ", placementRows=" + placementRows + ", listBottom=" + lowestListBottom + ", channels="
 					+ OreSourceGroupSettingsScreen.placementChannels(sulfurGroup));
 		}
+		validateKeepOriginalAcceptance(minecraft, parent, session, sulfurGroup.key);
 		oreSourcesLayoutValidated = true;
+	}
+
+	private void validateKeepOriginalAcceptance(Minecraft minecraft, GuiScreen parent,
+			GeologyEditorSession source, String key) {
+		JsonObject root = source.profile().rootCopy();
+		JsonObject policy = root.getAsJsonObject("ore_source_policies").getAsJsonObject(key);
+		policy.addProperty("mode", "keep_separate");
+		policy.addProperty("review_required", true);
+		policy.addProperty("status", "review_required");
+		JsonObject onlyPolicy = new JsonObject();
+		onlyPolicy.add(key, policy);
+		root.add("ore_source_policies", onlyPolicy);
+		GeologyEditorSession reviewSession = new GeologyEditorSession(
+				WorldGeologyProfile.fromJson(root, source.profile()));
+		GeologyEditorSession.OreSourceGroup before = null;
+		for (GeologyEditorSession.OreSourceGroup group : reviewSession.oreSourceGroups()) {
+			if (key.equals(group.key)) before = group;
+		}
+		if (before == null || !before.needsReview()) {
+			throw new IllegalStateException("Could not construct pending Keep Original review");
+		}
+		OreSourceListScreen review = new OreSourceListScreen(parent, reviewSession);
+		review.setWorldAndResolution(minecraft, 426, 265);
+		Button accept = null;
+		for (GuiButton widget : review.buttons) {
+			String caption = TextFormatting.getTextWithoutFormattingCodes(widget.displayString);
+			if (widget instanceof Button
+					&& I18n.format("button.orespawn.ore_source.accept").equals(caption)) {
+				accept = (Button) widget;
+			}
+		}
+		if (accept == null) throw new IllegalStateException("Pending Keep Original did not show Accept");
+		accept.press();
+		GeologyEditorSession.OreSourceGroup after = null;
+		for (GeologyEditorSession.OreSourceGroup group : reviewSession.oreSourceGroups()) {
+			if (key.equals(group.key)) after = group;
+		}
+		if (after == null || after.needsReview() || after.needsAttention()
+				|| !before.mode.equals(after.mode) || !before.outputs.equals(after.outputs)
+				|| !before.placements.equals(after.placements)) {
+			throw new IllegalStateException("Accept changed Keep Original instead of only clearing review");
+		}
 	}
 
 	private static GeologyEditorSession editorSession(OreSpawnWorldSettingsScreen root) {

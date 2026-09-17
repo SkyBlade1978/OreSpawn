@@ -320,6 +320,29 @@ class GeologyEditorSessionTest {
 		assertEquals(original.placements, restored.placements);
 	}
 
+	@Test
+	void acceptingKeepOriginalClearsReviewWithoutChangingItsPolicy() {
+		WorldGeologyProfile originalProfile = profileWithTwoOreOutputs();
+		GeologyEditorSession session = new GeologyEditorSession(originalProfile);
+		GeologyEditorSession.OreSourceGroup before = session.oreSourceGroups().get(0);
+		JsonObject persistedBefore = originalProfile.rootCopy();
+
+		assertTrue(before.needsReview());
+		assertEquals("keep_separate", before.mode);
+		session.acceptOreSourcePolicy(before.key);
+
+		GeologyEditorSession.OreSourceGroup accepted = session.oreSourceGroups().get(0);
+		assertFalse(accepted.needsReview());
+		assertFalse(accepted.needsAttention());
+		assertEquals("separate", accepted.status);
+		assertEquals(before.mode, accepted.mode);
+		assertEquals(before.outputMode, accepted.outputMode);
+		assertEquals(before.outputs, accepted.outputs);
+		assertEquals(before.placements, accepted.placements);
+		assertEquals(persistedBefore, originalProfile.rootCopy(),
+				"Accept remains pending until the main editor saves the profile");
+	}
+
 	private static WorldGeologyProfile profileWithOreSourcePolicy() {
 		JsonObject root = WorldGeologyProfile.recommended(false).toJson();
 		JsonObject policy = new JsonObject();

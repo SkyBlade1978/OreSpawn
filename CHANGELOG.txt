@@ -9,7 +9,7 @@ Version 4.1.0.110021
 * Replace the technical Ore Sources list/detail flow with compact independently
   scrolling group and output lists that remain visible together at compact
   resolutions. The default view hides harmless single-source entries behind
-  Show All; red groups need attention, yellow groups have a saved rule and
+  a compact Show All control; red groups need attention, yellow groups have a saved rule and
   green entries need no action. Each group has a cog for its name and aliases.
 * Rename the old Advanced channel controls to Placement Rules and explain their
   separate ownership of frequency, shape, depth and host restrictions. Single
@@ -19,11 +19,14 @@ Version 4.1.0.110021
   MMD conflicts balance every eligible output through one placement budget;
   inactive provider definitions remain selectable outputs without contributing
   another placement rule. Returning to Keep Original restores the output and
-  placement selections from when the editor was opened.
+  placement selections from when the editor was opened. An explicit Accept
+  action keeps that policy unchanged while clearing its pending review state;
+  the main editor's Done action remains the persistence boundary.
 * Keep tooltips inside the available side of the screen and move Placement
   Rules guidance into a compact help tooltip, with an explicit fixed,
   selectable, missing or Keep Original status instead of an unexplained
-  disabled control.
+  disabled control. Keep the group-name label inline, expand the alias list by
+  two rows and reduce the Placement Rules list by one row at compact sizes.
 * Ship curated Sulfur/Sulphur and Aluminum/Aluminium groups, keep Niter and
   Saltpeter distinct, deduplicate identical registry states, and allow confirmed
   alias reassignment plus stable custom groups. Group edits are saved to the

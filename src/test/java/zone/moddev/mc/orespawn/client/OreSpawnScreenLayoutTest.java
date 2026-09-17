@@ -106,6 +106,10 @@ class OreSpawnScreenLayoutTest {
 		assertTrue(list.contains("label.orespawn.ore_source.groups"));
 		assertTrue(list.contains("button.orespawn.show_all"));
 		assertTrue(list.contains("button.orespawn.ore_source.hide_single"));
+		assertTrue(list.contains("compactFilterWidth"));
+		assertTrue(list.contains("button.orespawn.ore_source.accept"));
+		assertTrue(list.contains("acceptOreSourcePolicy(group.key)"));
+		assertEquals(58, OreSourceListScreen.compactFilterWidth(110, 48));
 		assertTrue(list.contains("groupRowColor"));
 		assertTrue(list.contains("drawCompactCog"));
 		assertTrue(list.contains("outputCandidates()"));
@@ -130,9 +134,11 @@ class OreSpawnScreenLayoutTest {
 
 	@Test
 	void groupSettingsOwnsAliasesAndClearlyNamedPlacementRules() throws Exception {
-		assertEquals(48, OreSourceGroupSettingsScreen.aliasListHeight(265));
-		assertEquals(32, OreSourceGroupSettingsScreen.aliasListHeight(240));
+		assertEquals(80, OreSourceGroupSettingsScreen.aliasListHeight(265));
+		assertEquals(64, OreSourceGroupSettingsScreen.aliasListHeight(240));
 		String settings = screenSource("OreSourceGroupSettingsScreen.java");
+		assertTrue(settings.contains("contentX + nameLabelWidth, NAME_TOP"));
+		assertTrue(settings.contains("NAME_TOP + 6"));
 		assertTrue(settings.contains("option.orespawn.ore_source.group_name"));
 		assertTrue(settings.contains("option.orespawn.ore_source.alias"));
 		assertTrue(settings.contains("label.orespawn.ore_source.placement_rules"));

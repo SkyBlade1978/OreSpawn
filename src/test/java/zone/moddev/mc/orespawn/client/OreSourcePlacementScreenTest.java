@@ -68,6 +68,8 @@ class OreSourcePlacementScreenTest {
 		assertTrue(OreSourceListScreen.showByDefault(resolved));
 		assertEquals(0xFFFF55, OreSourceListScreen.groupRowColor(resolved));
 		assertTrue(unresolved.needsAttention());
+		assertTrue(unresolved.needsReview());
+		assertFalse(resolved.needsReview());
 		assertTrue(OreSourceListScreen.showByDefault(unresolved));
 		assertEquals(0xFF5555, OreSourceListScreen.groupRowColor(unresolved));
 	}

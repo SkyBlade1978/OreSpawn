@@ -236,13 +236,17 @@ placement-source rule per placement channel. Balanced uses equal weights,
 Single has exactly one output, and Custom accepts any non-empty positively
 weighted subset. The UI calls `keep_separate` **Keep Original**. Returning to
 Keep Original restores the output weights and placement-source selections from
-the profile snapshot taken when the editor was opened.
+the profile snapshot taken when the editor was opened. If Keep Original itself
+still needs review, **Accept** leaves those restored values unchanged and only
+marks the policy reviewed. Like every Ore Sources edit, it is persisted only by
+the main editor's **Done** action.
 
 The Ore Sources screen keeps compact scrollable group and output lists visible
 together. Its default view hides harmless one-alias, one-output entries; **Show
 All** reveals them. Red groups need attention, yellow groups have a saved rule,
-and green entries need no action. A saved consolidated rule therefore clears a
-multi-output group's attention state without hiding the resolved group. Use a
+and green entries need no action. A saved consolidated rule or an explicitly
+accepted Keep Original policy therefore clears a multi-output group's attention
+state without hiding the resolved group. Use a
 group's cog for its friendly name, Ore Dictionary aliases and **Placement
 Rules**. Output selection controls which registered block represents
 the material. Placement Rules separately control the managed rule that supplies

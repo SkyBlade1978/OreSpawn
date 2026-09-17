@@ -602,6 +602,12 @@ final class GeologyEditorSession {
 		refreshOreSourceStatus(policy);
 	}
 
+	void acceptOreSourcePolicy(String key) {
+		JsonObject policy = objectEntry(section("ore_source_policies"), key);
+		policy.addProperty("review_required", false);
+		refreshOreSourceStatus(policy);
+	}
+
 	void restoreOreSourceOriginalMode(String key) {
 		JsonObject policy = objectEntry(section("ore_source_policies"), key);
 		JsonObject originalPolicies = object(original, "ore_source_policies");
@@ -838,8 +844,12 @@ final class GeologyEditorSession {
 		}
 
 		boolean needsAttention() {
-			return "review_required".equals(status) || "missing_source".equals(status)
+			return needsReview() || "missing_source".equals(status)
 					|| "external_generation".equals(status) || outputCandidates().isEmpty();
+		}
+
+		boolean needsReview() {
+			return "review_required".equals(status);
 		}
 
 		boolean isRoutineSingleSource() {
