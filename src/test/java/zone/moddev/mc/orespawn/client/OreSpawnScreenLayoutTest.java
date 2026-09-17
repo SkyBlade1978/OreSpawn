@@ -136,6 +136,10 @@ class OreSpawnScreenLayoutTest {
 	void groupSettingsOwnsAliasesAndClearlyNamedPlacementRules() throws Exception {
 		assertEquals(80, OreSourceGroupSettingsScreen.aliasListHeight(265));
 		assertEquals(64, OreSourceGroupSettingsScreen.aliasListHeight(240));
+		assertEquals(101, OreSourceGroupSettingsScreen.doneButtonWidth(406));
+		assertEquals(80, OreSourceGroupSettingsScreen.doneButtonWidth(240));
+		assertEquals(120, OreSourceGroupSettingsScreen.doneButtonWidth(600));
+		assertEquals(297, OreSourceGroupSettingsScreen.validationMessageWidth(406));
 		String settings = screenSource("OreSourceGroupSettingsScreen.java");
 		assertTrue(settings.contains("contentX + nameLabelWidth, NAME_TOP"));
 		assertTrue(settings.contains("NAME_TOP + 6"));
@@ -146,6 +150,11 @@ class OreSpawnScreenLayoutTest {
 		assertTrue(settings.contains("new TextComponentString(\"?\")"));
 		assertTrue(settings.contains("label.orespawn.ore_source.standard_veins"));
 		assertTrue(settings.contains("placementSelectable(group, channel)"));
+		assertTrue(settings.contains("contentX + contentWidth - doneWidth, height - 28"));
+		assertTrue(settings.contains("contentX + 2, height - 22, 0xFF5555"));
+		assertTrue(settings.contains("renderStringTooltip(java.util.Collections.singletonList(error)"));
+		assertFalse(settings.contains("width / 2 - 75, height - 28"));
+		assertFalse(settings.contains("width / 2, 19, 0xFF5555"));
 		assertTrue(screenSource("OreSourceListScreen.java").contains("!candidate.external"));
 		assertTrue(settings.contains("minecraft.displayGuiScreen(parent)"));
 		assertFalse(settings.contains("button.orespawn.ore_source.advanced"));

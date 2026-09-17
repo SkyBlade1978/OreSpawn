@@ -34,6 +34,9 @@ Version 4.1.0.110021
 * Ignore missing historical external-candidate records when the same registry
   state is now supplied by a loaded managed provider, preventing resolved
   groups from remaining falsely red while retaining the dormant record.
+* Keep Group Settings validation visible on a dedicated bottom row, with the
+  Done action in the lower-right corner and full clipped messages available by
+  tooltip during confirmed Ore Dictionary alias reassignment.
 * Add provider schema 5 material and placement-channel declarations, global
   schema 8 and world-profile schema 7 while retaining older readable schemas.
 * Add an extended, binary-compatible ore generation context exposing stable

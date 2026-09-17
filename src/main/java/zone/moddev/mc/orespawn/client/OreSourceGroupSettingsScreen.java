@@ -196,7 +196,8 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 		});
 		placementList.setFirstIndex(placementScroll);
 
-		addButton(new Button(width / 2 - 75, height - 28, 150, 20,
+		int doneWidth = doneButtonWidth(contentWidth);
+		addButton(new Button(contentX + contentWidth - doneWidth, height - 28, doneWidth, 20,
 				DialogTexts.GUI_DONE, button -> onClose()));
 	}
 
@@ -248,6 +249,14 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 
 	static int aliasListHeight(int height) {
 		return height >= 260 ? 80 : 64;
+	}
+
+	static int doneButtonWidth(int contentWidth) {
+		return Math.min(120, Math.max(80, contentWidth / 4));
+	}
+
+	static int validationMessageWidth(int contentWidth) {
+		return Math.max(40, contentWidth - doneButtonWidth(contentWidth) - 8);
 	}
 
 	static List<String> placementChannels(OreSourceGroup group) {
@@ -312,16 +321,25 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 				contentX + 2, ALIAS_LABEL_TOP, 0xA0A0A0);
 		drawString(font, new TextComponentTranslation("label.orespawn.ore_source.placement_rules"),
 				contentX + 2, placementLabelY, 0xFFFFFF);
-		if (error != null) {
-			drawCenteredString(font, new TextComponentString(OreSpawnScreenLayout.fit(font,
-					new TextComponentString(error), width - 24)), width / 2, 19, 0xFF5555);
-		}
 		OreSourceGroup group = selectedGroup();
 		if (group != null && group.oreDictionaryEntries.isEmpty()) {
 			drawCenteredString(font, new TextComponentTranslation("label.orespawn.ore_source.no_aliases"),
 					contentX + (contentWidth / 2), ALIAS_TOP + 4, 0x777777);
 		}
 		super.render(mouseX, mouseY, partialTick);
+		if (error != null) {
+			int messageWidth = validationMessageWidth(contentWidth);
+			TextComponentString message = new TextComponentString(error);
+			drawString(font, new TextComponentString(OreSpawnScreenLayout.fit(font,
+					message, messageWidth)), contentX + 2, height - 22, 0xFF5555);
+		}
 		OreSpawnScreenLayout.renderExplanations(this, mouseX, mouseY);
+		if (error != null) {
+			int messageWidth = validationMessageWidth(contentWidth);
+			if (mouseX >= contentX && mouseX < contentX + messageWidth
+					&& mouseY >= height - 26 && mouseY < height - 8) {
+				renderStringTooltip(java.util.Collections.singletonList(error), mouseX, mouseY);
+			}
+		}
 	}
 }

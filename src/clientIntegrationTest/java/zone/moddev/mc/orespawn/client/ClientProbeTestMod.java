@@ -364,7 +364,71 @@ public final class ClientProbeTestMod {
 		}
 		validateKeepOriginalAcceptance(minecraft, parent, session, sulfurGroup.key);
 		validateStaleExternalClassification(minecraft, parent, session, sulfurGroup.key);
+		validateCustomGroupReassignmentLayout(minecraft, screen, session);
 		oreSourcesLayoutValidated = true;
+	}
+
+	private void validateCustomGroupReassignmentLayout(Minecraft minecraft, GuiScreen parent,
+			GeologyEditorSession source) {
+		GeologyEditorSession customSession = new GeologyEditorSession(
+				WorldGeologyProfile.fromJson(source.profile().rootCopy(), source.profile()));
+		String customKey = customSession.addOreMaterialGroup();
+		String material = customKey.substring(0, customKey.indexOf('|'));
+		customSession.renameOreMaterialGroup(material, "Precious Stones");
+		String originalOwner = customSession.oreDictionaryOwner("oreDiamond");
+		if (originalOwner == null || material.equals(originalOwner)) {
+			throw new IllegalStateException("Could not establish the oreDiamond reassignment control");
+		}
+		OreSourceGroupSettingsScreen settings = new OreSourceGroupSettingsScreen(
+				parent, customSession, customKey);
+		settings.setWorldAndResolution(minecraft, 426, 265);
+		TextFieldWidget alias = null;
+		Button add = null;
+		for (GuiButton widget : settings.buttons) {
+			if (widget instanceof TextFieldWidget
+					&& ((TextFieldWidget) widget).getValue().isEmpty()) alias = (TextFieldWidget) widget;
+			String caption = TextFormatting.getTextWithoutFormattingCodes(widget.displayString);
+			if (widget instanceof Button && "+".equals(caption)) add = (Button) widget;
+		}
+		if (alias == null || add == null) {
+			throw new IllegalStateException("Custom Group Settings did not expose alias reassignment controls");
+		}
+		alias.setValue("oreDiamond");
+		add.press();
+
+		Button move = null;
+		Button done = null;
+		for (GuiButton widget : settings.buttons) {
+			String caption = TextFormatting.getTextWithoutFormattingCodes(widget.displayString);
+			if (widget instanceof Button
+					&& I18n.format("button.orespawn.ore_source.move").equals(caption)) move = (Button) widget;
+			if (widget instanceof Button && I18n.format("gui.done").equals(caption)) done = (Button) widget;
+		}
+		String message;
+		try {
+			Field error = OreSourceGroupSettingsScreen.class.getDeclaredField("error");
+			error.setAccessible(true);
+			message = (String) error.get(settings);
+		} catch (ReflectiveOperationException exception) {
+			throw new IllegalStateException("Could not inspect Group Settings validation state", exception);
+		}
+		int contentWidth = 406;
+		int expectedDoneX = 10 + contentWidth
+				- OreSourceGroupSettingsScreen.doneButtonWidth(contentWidth);
+		if (move == null || message == null || message.isEmpty() || done == null
+				|| done.xPosition != expectedDoneX || done.yPosition != 237
+				|| OreSourceGroupSettingsScreen.validationMessageWidth(contentWidth) <= 0) {
+			throw new IllegalStateException("Alias reassignment message did not own the bottom row: move="
+					+ (move != null) + ", message=" + message + ", done="
+					+ (done == null ? "missing" : done.xPosition + "," + done.yPosition));
+		}
+		if (!originalOwner.equals(customSession.oreDictionaryOwner("oreDiamond"))) {
+			throw new IllegalStateException("First alias action reassigned oreDiamond without confirmation");
+		}
+		move.press();
+		if (!material.equals(customSession.oreDictionaryOwner("oreDiamond"))) {
+			throw new IllegalStateException("Move did not confirm oreDiamond reassignment");
+		}
 	}
 
 	private void validateKeepOriginalAcceptance(Minecraft minecraft, GuiScreen parent,
