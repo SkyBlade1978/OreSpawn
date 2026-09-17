@@ -839,7 +839,12 @@ final class GeologyEditorSession {
 
 		boolean needsAttention() {
 			return "review_required".equals(status) || "missing_source".equals(status)
-					|| "external_generation".equals(status) || outputCandidates().size() > 1;
+					|| "external_generation".equals(status) || outputCandidates().isEmpty();
+		}
+
+		boolean isRoutineSingleSource() {
+			return !needsAttention() && oreDictionaryEntries.size() == 1
+					&& outputCandidates().size() == 1;
 		}
 
 		boolean isRedundantSeparatePolicy() {

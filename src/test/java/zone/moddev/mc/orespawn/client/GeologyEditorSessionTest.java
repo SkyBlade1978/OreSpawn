@@ -281,6 +281,8 @@ class GeologyEditorSessionTest {
 		GeologyEditorSession.OreSourceGroup balanced = session.oreSourceGroups().get(0);
 		assertEquals(2, balanced.outputs.size());
 		assertTrue(balanced.outputs.values().stream().allMatch(weight -> weight == 1.0D));
+		assertFalse(balanced.needsAttention(),
+				"a saved consolidated rule must no longer be marked for review");
 
 		session.setOreSourceOutputMode(key, "single");
 		GeologyEditorSession.OreSourceGroup single = session.oreSourceGroups().get(0);

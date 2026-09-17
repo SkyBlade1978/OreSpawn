@@ -457,3 +457,5 @@ tooltip.orespawn.ore_source.placement_missing=La source de placement enregistré
 tooltip.orespawn.ore_source.placement_readonly=Une seule règle gérée active est disponible; cette source est en lecture seule.
 tooltip.orespawn.ore_source.placement_select=Cliquez pour choisir entre les sources de placement gérées actives.
 tooltip.orespawn.ore_source.external_excluded=Les générateurs externes sont signalés mais ne peuvent pas être choisis comme règles de placement.
+button.orespawn.ore_source.hide_single=Masquer les entrées simples
+tooltip.orespawn.ore_source.group_colours=Les entrées vertes ont un alias et une sortie et ne demandent aucune action. Les groupes jaunes ont une règle enregistrée. Les groupes rouges demandent votre attention. Afficher tout inclut les entrées vertes.

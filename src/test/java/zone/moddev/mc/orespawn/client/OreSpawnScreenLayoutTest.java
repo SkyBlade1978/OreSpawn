@@ -104,6 +104,9 @@ class OreSpawnScreenLayoutTest {
 		assertTrue(list.contains("new CompactScrollList(this, leftPaneX, CONTENT_TOP"));
 		assertTrue(list.contains("new CompactScrollList(this, rightPaneX, CONTENT_TOP + 24"));
 		assertTrue(list.contains("label.orespawn.ore_source.groups"));
+		assertTrue(list.contains("button.orespawn.show_all"));
+		assertTrue(list.contains("button.orespawn.ore_source.hide_single"));
+		assertTrue(list.contains("groupRowColor"));
 		assertTrue(list.contains("drawCompactCog"));
 		assertTrue(list.contains("outputCandidates()"));
 		assertTrue(list.contains("single || !group.outputs.containsKey(candidate.sourceId)"),
@@ -127,18 +130,20 @@ class OreSpawnScreenLayoutTest {
 
 	@Test
 	void groupSettingsOwnsAliasesAndClearlyNamedPlacementRules() throws Exception {
-		assertEquals(32, OreSourceGroupSettingsScreen.aliasListHeight(265));
-		assertEquals(16, OreSourceGroupSettingsScreen.aliasListHeight(240));
+		assertEquals(48, OreSourceGroupSettingsScreen.aliasListHeight(265));
+		assertEquals(32, OreSourceGroupSettingsScreen.aliasListHeight(240));
 		String settings = screenSource("OreSourceGroupSettingsScreen.java");
 		assertTrue(settings.contains("option.orespawn.ore_source.group_name"));
 		assertTrue(settings.contains("option.orespawn.ore_source.alias"));
 		assertTrue(settings.contains("label.orespawn.ore_source.placement_rules"));
-		assertTrue(settings.contains("label.orespawn.ore_source.placement_explanation"));
+		assertTrue(settings.contains("tooltip.orespawn.ore_source.placement_rules"));
+		assertTrue(settings.contains("new TextComponentString(\"?\")"));
 		assertTrue(settings.contains("label.orespawn.ore_source.standard_veins"));
 		assertTrue(settings.contains("placementSelectable(group, channel)"));
 		assertTrue(screenSource("OreSourceListScreen.java").contains("!candidate.external"));
 		assertTrue(settings.contains("minecraft.displayGuiScreen(parent)"));
 		assertFalse(settings.contains("button.orespawn.ore_source.advanced"));
+		assertFalse(settings.contains("placementExplanationLines"));
 	}
 
 	@Test

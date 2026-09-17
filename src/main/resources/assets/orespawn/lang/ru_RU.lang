@@ -457,3 +457,5 @@ tooltip.orespawn.ore_source.placement_missing=Сохранённый источ�
 tooltip.orespawn.ore_source.placement_readonly=Доступно только одно активное управляемое правило; источник доступен только для чтения.
 tooltip.orespawn.ore_source.placement_select=Нажмите для выбора активного управляемого источника размещения.
 tooltip.orespawn.ore_source.external_excluded=Независимые внешние генераторы отображаются, но не могут быть выбраны как правила размещения.
+button.orespawn.ore_source.hide_single=Скрыть одиночные
+tooltip.orespawn.ore_source.group_colours=Зелёные записи имеют один псевдоним и один выход и не требуют действий. Жёлтые группы имеют сохранённое правило. Красные группы требуют внимания. Показать все также показывает зелёные записи.

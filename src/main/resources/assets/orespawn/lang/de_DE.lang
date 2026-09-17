@@ -457,3 +457,5 @@ tooltip.orespawn.ore_source.placement_missing=Die gespeicherte Platzierungsquell
 tooltip.orespawn.ore_source.placement_readonly=Nur eine aktive verwaltete Regel ist verfügbar; diese Quelle ist schreibgeschützt.
 tooltip.orespawn.ore_source.placement_select=Klicken, um zwischen aktiven verwalteten Platzierungsquellen zu wählen.
 tooltip.orespawn.ore_source.external_excluded=Unabhängige externe Generatoren werden gemeldet, können aber nicht als Platzierungsregeln gewählt werden.
+button.orespawn.ore_source.hide_single=Einzelne ausblenden
+tooltip.orespawn.ore_source.group_colours=Grüne Einträge haben einen Alias und eine Ausgabe und benötigen keine Aktion. Gelbe Gruppen haben eine gespeicherte Regel. Rote Gruppen benötigen Aufmerksamkeit. Alle anzeigen schließt grüne Einträge ein.

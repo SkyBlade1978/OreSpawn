@@ -457,3 +457,5 @@ tooltip.orespawn.ore_source.placement_missing=保存された配置元があり�
 tooltip.orespawn.ore_source.placement_readonly=有効な管理ルールは1つだけなので、このソースは読み取り専用です。
 tooltip.orespawn.ore_source.placement_select=クリックして有効な管理対象配置元を選択します。
 tooltip.orespawn.ore_source.external_excluded=独立した外部生成は報告されますが、配置ルールには選択できません。
+button.orespawn.ore_source.hide_single=単一項目を隠す
+tooltip.orespawn.ore_source.group_colours=緑は別名と出力が各1つで操作不要です。黄は保存済みルールがあるグループです。赤は確認が必要です。すべて表示で緑の項目も表示します。

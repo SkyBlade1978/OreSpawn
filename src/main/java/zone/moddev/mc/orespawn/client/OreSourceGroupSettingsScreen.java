@@ -34,10 +34,6 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 	private int addAliasY;
 	private int placementLabelY;
 	private int placementListY;
-	private int placementStatusY;
-	private List<String> placementExplanationLines = java.util.Collections.emptyList();
-	private List<String> placementStatusLines = java.util.Collections.emptyList();
-	private int placementStatusColor = 0xA0A0A0;
 	private TextFieldWidget nameField;
 	private TextFieldWidget aliasField;
 	private CompactScrollList aliasList;
@@ -131,11 +127,17 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 
 		final List<String> channels = placementChannels(group);
 		placementLabelY = addAliasY + 27;
-		placementExplanationLines = wrap(I18n.format("label.orespawn.ore_source.placement_explanation"));
-		placementStatusLines = wrap(placementStatus(group, channels));
-		placementStatusY = placementLabelY + 11 + (placementExplanationLines.size() * 10);
-		placementListY = placementStatusY + (placementStatusLines.size() * 10) + 3;
-		placementStatusColor = placementStatusColor(group, channels);
+		int helpX = contentX + font.getStringWidth(
+				I18n.format("label.orespawn.ore_source.placement_rules")) + 8;
+		addButton(new Button(helpX, placementLabelY - 4, 16, 16,
+				new TextComponentString("?"), button -> { }, (button, mouseX, mouseY) -> {
+			List<String> lines = new ArrayList<>();
+			lines.add(I18n.format("tooltip.orespawn.ore_source.placement_rules"));
+			lines.add(placementStatus(group, channels));
+			lines.add(I18n.format("tooltip.orespawn.ore_source.external_excluded"));
+			renderStringTooltip(lines, mouseX, mouseY);
+		}));
+		placementListY = placementLabelY + 14;
 		placementList = addButton(new CompactScrollList(this, contentX, placementListY,
 				contentWidth, Math.max(16, height - 32 - placementListY)) {
 			@Override protected int size() { return channels.size(); }
@@ -242,11 +244,7 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 	}
 
 	static int aliasListHeight(int height) {
-		return height >= 260 ? 32 : 16;
-	}
-
-	private List<String> wrap(String text) {
-		return font.listFormattedStringToWidth(text, Math.max(80, contentWidth - 4));
+		return height >= 260 ? 48 : 32;
 	}
 
 	static List<String> placementChannels(OreSourceGroup group) {
@@ -281,18 +279,6 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 				: "tooltip.orespawn.ore_source.placement_readonly");
 	}
 
-	static int placementStatusColor(OreSourceGroup group, List<String> channels) {
-		if (channels.isEmpty()) return 0x777777;
-		if ("keep_separate".equals(group.mode)) return 0xA0A0A0;
-		for (String channel : channels) {
-			if (OreSourceListScreen.placementCandidates(group, channel).isEmpty()) return 0xFF5555;
-		}
-		for (String channel : channels) {
-			if (placementSelectable(group, channel)) return 0x55FF55;
-		}
-		return 0xFFFF55;
-	}
-
 	@Override
 	public void handleMouseInput() throws IOException {
 		int mouseX = Mouse.getEventX() * width / minecraft.displayWidth;
@@ -323,16 +309,6 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 				contentX + 2, 59, 0xA0A0A0);
 		drawString(font, new TextComponentTranslation("label.orespawn.ore_source.placement_rules"),
 				contentX + 2, placementLabelY, 0xFFFFFF);
-		int lineY = placementLabelY + 10;
-		for (String line : placementExplanationLines) {
-			drawString(font, new TextComponentString(line), contentX + 2, lineY, 0xA0A0A0);
-			lineY += 10;
-		}
-		lineY = placementStatusY;
-		for (String line : placementStatusLines) {
-			drawString(font, new TextComponentString(line), contentX + 2, lineY, placementStatusColor);
-			lineY += 10;
-		}
 		if (error != null) {
 			drawCenteredString(font, new TextComponentString(OreSpawnScreenLayout.fit(font,
 					new TextComponentString(error), width - 24)), width / 2, 19, 0xFF5555);

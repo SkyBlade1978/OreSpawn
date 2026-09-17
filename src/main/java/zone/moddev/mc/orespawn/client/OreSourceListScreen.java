@@ -31,6 +31,7 @@ final class OreSourceListScreen extends OreSpawnScreen {
 	private final Map<String, TextFieldWidget> weights = new LinkedHashMap<>();
 	private String selectedKey;
 	private String error;
+	private boolean showAll;
 	private int groupScroll;
 	private int outputScroll;
 	private int leftPaneX;
@@ -80,6 +81,21 @@ final class OreSourceListScreen extends OreSpawnScreen {
 			rebuild();
 		}));
 		OreSpawnScreenLayout.explain(this, add, "button.orespawn.ore_source.add_group");
+		int showX = addX + 20;
+		int showWidth = Math.max(38, leftPaneX + leftPaneWidth - showX);
+		Button show = addButton(OreSpawnScreenLayout.button(this, font,
+				showX, 4, showWidth, 16,
+				new TextComponentTranslation(showAll
+						? "button.orespawn.ore_source.hide_single"
+						: "button.orespawn.show_all"), button -> {
+			if (!syncWeights()) return;
+			captureScroll();
+			showAll = !showAll;
+			groupScroll = 0;
+			error = null;
+			rebuild();
+		}));
+		OreSpawnScreenLayout.explain(this, show, "tooltip.orespawn.ore_source.group_colours");
 
 		groupList = addButton(new CompactScrollList(this, leftPaneX, CONTENT_TOP,
 				leftPaneWidth, paneBottom - CONTENT_TOP) {
@@ -87,8 +103,11 @@ final class OreSourceListScreen extends OreSpawnScreen {
 
 			@Override protected String rowText(int index) {
 				OreSourceGroup group = groups.get(index);
-				return (group.needsAttention() ? "! " : "") + group.displayName
-						+ " - " + display(group.domain);
+				return group.displayName + " - " + display(group.domain);
+			}
+
+			@Override protected int rowColor(int index) {
+				return groupRowColor(groups.get(index));
 			}
 
 			@Override protected boolean rowSelected(int index) {
@@ -260,15 +279,33 @@ final class OreSourceListScreen extends OreSpawnScreen {
 	}
 
 	private List<OreSourceGroup> orderedGroups() {
-		List<OreSourceGroup> result = new ArrayList<>(session.oreSourceGroups());
+		List<OreSourceGroup> result = new ArrayList<>();
+		for (OreSourceGroup group : session.oreSourceGroups()) {
+			if (showAll || showByDefault(group)) result.add(group);
+		}
 		result.sort((left, right) -> {
-			if (left.needsAttention() != right.needsAttention()) return left.needsAttention() ? -1 : 1;
+			int leftRank = groupStatusRank(left);
+			int rightRank = groupStatusRank(right);
+			if (leftRank != rightRank) return Integer.compare(leftRank, rightRank);
 			int name = left.displayName.compareToIgnoreCase(right.displayName);
 			if (name != 0) return name;
 			int material = left.material.compareTo(right.material);
 			return material != 0 ? material : left.domain.compareTo(right.domain);
 		});
 		return result;
+	}
+
+	static boolean showByDefault(OreSourceGroup group) {
+		return !group.isRoutineSingleSource();
+	}
+
+	static int groupRowColor(OreSourceGroup group) {
+		return group.needsAttention() ? 0xFF5555
+				: group.isRoutineSingleSource() ? 0x55FF55 : 0xFFFF55;
+	}
+
+	private static int groupStatusRank(OreSourceGroup group) {
+		return group.needsAttention() ? 0 : group.isRoutineSingleSource() ? 2 : 1;
 	}
 
 	private OreSourceGroup selected(List<OreSourceGroup> groups) {
@@ -329,6 +366,7 @@ final class OreSourceListScreen extends OreSpawnScreen {
 				I18n.format("status.orespawn.ore_source." + group.status)));
 		result.add(group.oreDictionaryEntries.isEmpty() ? "-"
 				: String.join(", ", group.oreDictionaryEntries));
+		result.add(I18n.format("tooltip.orespawn.ore_source.group_colours"));
 		return result;
 	}
 

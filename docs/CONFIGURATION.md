@@ -239,15 +239,20 @@ Keep Original restores the output weights and placement-source selections from
 the profile snapshot taken when the editor was opened.
 
 The Ore Sources screen keeps compact scrollable group and output lists visible
-together. Use a group's cog for its friendly name, Ore Dictionary aliases and
-**Placement Rules**. Output selection controls which registered block represents
+together. Its default view hides harmless one-alias, one-output entries; **Show
+All** reveals them. Red groups need attention, yellow groups have a saved rule,
+and green entries need no action. A saved consolidated rule therefore clears a
+multi-output group's attention state without hiding the resolved group. Use a
+group's cog for its friendly name, Ore Dictionary aliases and **Placement
+Rules**. Output selection controls which registered block represents
 the material. Placement Rules separately control the managed rule that supplies
 frequency, shape, depth and host restrictions for each channel. `orespawn:standard`
 is shown as **Standard veins**; exact custom-channel IDs remain available in
 tooltips. A sole active managed source is read-only, multiple active managed
 sources are selectable, and independent external generators are never offered
-as placement owners. The settings screen labels that state explicitly and wraps
-its purpose and status above the placement list at compact resolutions.
+as placement owners. The compact help and row tooltips explain whether a rule is
+fixed, selectable, missing or inactive under Keep Original without reducing the
+alias-list height.
 
 Consolidation runs the chosen placement rule's pattern, hosts, filters, height
 and frequency once; selected candidates contribute output bundles only. An

@@ -46,20 +46,40 @@ class OreSourcePlacementScreenTest {
 		assertFalse(OreSourceGroupSettingsScreen.placementSelectable(
 				group("keep_separate", Arrays.asList(first, second), Collections.emptyMap()),
 				"orespawn:standard"));
-		assertEquals(0xFFFF55, OreSourceGroupSettingsScreen.placementStatusColor(
-				group("consolidated", Collections.singletonList(first), Collections.emptyMap()),
-				Collections.singletonList("orespawn:standard")));
-		assertEquals(0x55FF55, OreSourceGroupSettingsScreen.placementStatusColor(
-				group("consolidated", Arrays.asList(first, second), Collections.emptyMap()),
-				Collections.singletonList("orespawn:standard")));
-		assertEquals(0xA0A0A0, OreSourceGroupSettingsScreen.placementStatusColor(
-				group("keep_separate", Arrays.asList(first, second), Collections.emptyMap()),
-				Collections.singletonList("orespawn:standard")));
+	}
+
+	@Test
+	void groupColoursSeparateRoutineResolvedAndUnresolvedEntries() {
+		OreSourceCandidate first = candidate("first", "first:ore", "orespawn:standard",
+				true, true, false);
+		OreSourceCandidate second = candidate("second", "second:ore", "orespawn:standard",
+				true, true, false);
+		OreSourceGroup routine = group("keep_separate", "separate",
+				Collections.singletonList("oreIron"), Collections.singletonList(first));
+		OreSourceGroup resolved = group("consolidated", "consolidated",
+				Arrays.asList("oreSulfur", "oreSulphur"), Arrays.asList(first, second));
+		OreSourceGroup unresolved = group("keep_separate", "review_required",
+				Arrays.asList("oreSulfur", "oreSulphur"), Arrays.asList(first, second));
+
+		assertTrue(routine.isRoutineSingleSource());
+		assertFalse(OreSourceListScreen.showByDefault(routine));
+		assertEquals(0x55FF55, OreSourceListScreen.groupRowColor(routine));
+		assertFalse(resolved.needsAttention());
+		assertTrue(OreSourceListScreen.showByDefault(resolved));
+		assertEquals(0xFFFF55, OreSourceListScreen.groupRowColor(resolved));
+		assertTrue(unresolved.needsAttention());
+		assertTrue(OreSourceListScreen.showByDefault(unresolved));
+		assertEquals(0xFF5555, OreSourceListScreen.groupRowColor(unresolved));
 	}
 
 	private static OreSourceCandidate candidate(String source, String channel,
 			boolean loaded, boolean active, boolean external) {
-		return new OreSourceCandidate(source, "owner", "Owner", "1", "owner:ore", 0,
+		return candidate(source, "owner:ore", channel, loaded, active, external);
+	}
+
+	private static OreSourceCandidate candidate(String source, String registry, String channel,
+			boolean loaded, boolean active, boolean external) {
+		return new OreSourceCandidate(source, "owner", "Owner", "1", registry, 0,
 				channel, Collections.singletonList("oreTest"), loaded, active,
 				external, false, false);
 	}
@@ -71,5 +91,13 @@ class OreSourcePlacementScreenTest {
 				mode, "balanced", "consolidated", candidates,
 				Collections.unmodifiableMap(new LinkedHashMap<>()),
 				Collections.unmodifiableMap(new LinkedHashMap<>(placements)));
+	}
+
+	private static OreSourceGroup group(String mode, String status, List<String> aliases,
+			List<OreSourceCandidate> candidates) {
+		return new OreSourceGroup("orespawn:test|minecraft:overworld", "orespawn:test",
+				"minecraft:overworld", "Test", aliases, false, mode, "balanced", status,
+				candidates, Collections.unmodifiableMap(new LinkedHashMap<>()),
+				Collections.emptyMap());
 	}
 }

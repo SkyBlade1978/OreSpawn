@@ -457,3 +457,5 @@ tooltip.orespawn.ore_source.placement_missing=The saved placement source is miss
 tooltip.orespawn.ore_source.placement_readonly=Only one active managed rule is available, so this source is read-only.
 tooltip.orespawn.ore_source.placement_select=Click to choose between active managed placement sources.
 tooltip.orespawn.ore_source.external_excluded=Independent external generators are reported but cannot be selected as placement rules.
+button.orespawn.ore_source.hide_single=Hide Singles
+tooltip.orespawn.ore_source.group_colours=Green entries have one alias and one output and need no action. Yellow groups have a saved rule. Red groups need attention. Show All includes green entries.

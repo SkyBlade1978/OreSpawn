@@ -457,3 +457,5 @@ tooltip.orespawn.ore_source.placement_missing=저장된 배치 소스가 없습�
 tooltip.orespawn.ore_source.placement_readonly=활성 관리 규칙이 하나뿐이므로 이 소스는 읽기 전용입니다.
 tooltip.orespawn.ore_source.placement_select=활성 관리 배치 소스 중 하나를 선택하려면 클릭하세요.
 tooltip.orespawn.ore_source.external_excluded=독립 외부 생성기는 보고되지만 배치 규칙으로 선택할 수 없습니다.
+button.orespawn.ore_source.hide_single=단일 항목 숨기기
+tooltip.orespawn.ore_source.group_colours=녹색 항목은 별칭과 출력이 각각 하나라 조치가 필요 없습니다. 노란색 그룹에는 저장된 규칙이 있습니다. 빨간색 그룹은 확인이 필요합니다. 모두 표시를 누르면 녹색 항목도 표시됩니다.

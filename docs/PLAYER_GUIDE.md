@@ -47,17 +47,22 @@ safely instead of breaking world creation.
 - **Manage Vanilla Ores** lets OreSpawn replace vanilla ore features with the
   configured OreSpawn rules. Leave it off to keep normal Minecraft placement.
 - **Ore Sources** opens the material-group editor beside **Add Block**. Compact
-  scrolling lists keep every discovered group on the left and the deduplicated
-  union of installed ore blocks represented by its aliases on the right:
+  scrolling lists keep relevant groups on the left and the deduplicated union
+  of installed ore blocks represented by their aliases on the right. Ordinary
+  one-alias, one-output entries are hidden until **Show All** is selected. Red
+  groups need attention, yellow groups have a saved rule and green entries need
+  no action:
   **Balanced** shares them equally, **Single** uses one, **Custom** enables a
   weighted subset, and **Keep Original** preserves every old placement rule and
   restores the output and placement selections present when the editor opened.
-  Groups needing attention sort first. The cog beside a group opens its friendly
+  Groups needing attention sort first. Saving a consolidated rule clears that
+  attention state. The cog beside a group opens its friendly
   name, Ore Dictionary aliases and **Placement Rules**. Outputs decide which
   block is used; Placement Rules decide the frequency, shape, depth and host
   restrictions for each managed channel. A single managed source is read-only;
-  multiple managed sources can be selected. The screen states whether each
-  channel is fixed, selectable, missing, or inactive under Keep Original.
+  multiple managed sources can be selected. Hover the Placement Rules help or
+  a rule row to see whether it is fixed, selectable, missing, or inactive under
+  Keep Original.
   Independent external generators
   are explained but never offered as controllable placement sources.
 - **Mods** opens a paginated directory of loaded OreSpawn integrations. It

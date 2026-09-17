@@ -457,3 +457,5 @@ tooltip.orespawn.ore_source.placement_missing=Falta la fuente de colocación gua
 tooltip.orespawn.ore_source.placement_readonly=Solo hay una regla administrada activa; esta fuente es de solo lectura.
 tooltip.orespawn.ore_source.placement_select=Haz clic para elegir entre fuentes de colocación administradas activas.
 tooltip.orespawn.ore_source.external_excluded=Los generadores externos se informan, pero no pueden elegirse como reglas de colocación.
+button.orespawn.ore_source.hide_single=Ocultar individuales
+tooltip.orespawn.ore_source.group_colours=Las entradas verdes tienen un alias y una salida y no requieren acción. Los grupos amarillos tienen una regla guardada. Los grupos rojos requieren atención. Mostrar todo incluye las entradas verdes.

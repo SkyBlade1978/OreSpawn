@@ -21,6 +21,7 @@ import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiCreateWorld;
 import net.minecraft.client.gui.GuiMainMenu;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.GameType;
 import net.minecraft.world.WorldSettings;
@@ -267,6 +268,10 @@ public final class ClientProbeTestMod {
 			throw new IllegalStateException("Fresh Sulfur policy was not Balanced: mode="
 					+ sulfur.mode + ", outputMode=" + sulfur.outputMode);
 		}
+		if (sulfur.needsAttention() || OreSourceListScreen.groupRowColor(sulfur) != 0xFFFF55) {
+			throw new IllegalStateException("Resolved Sulfur policy was not classified yellow: status="
+					+ sulfur.status + ", attention=" + sulfur.needsAttention());
+		}
 		boolean mineralogy = false;
 		boolean electricOutputOnly = false;
 		for (GeologyEditorSession.OreSourceCandidate candidate : sulfur.outputCandidates()) {
@@ -302,17 +307,20 @@ public final class ClientProbeTestMod {
 		boolean outputList = false;
 		boolean inlineAdministration = false;
 		boolean back = false;
+		boolean showAll = false;
 		for (GuiButton widget : screen.buttons) {
 			String caption = TextFormatting.getTextWithoutFormattingCodes(widget.displayString);
 			if (widget instanceof CompactScrollList && widget.xPosition < right) groupList = true;
 			if (widget instanceof CompactScrollList && widget.xPosition >= right) outputList = true;
 			if (widget instanceof TextFieldWidget && widget.xPosition < right) inlineAdministration = true;
 			if ("Back".equals(caption)) back = true;
+			if (I18n.format("button.orespawn.show_all").equals(caption)) showAll = true;
 		}
-		if (!groupList || !outputList || inlineAdministration || back) {
+		if (!groupList || !outputList || inlineAdministration || back || !showAll) {
 			throw new IllegalStateException("Ore Sources was not one compact two-pane screen: groups="
 					+ groupList + ", outputs=" + outputList + ", inlineAdministration="
-					+ inlineAdministration + ", back=" + back + ", left=" + left + ", right=" + right);
+					+ inlineAdministration + ", back=" + back + ", showAll=" + showAll
+					+ ", left=" + left + ", right=" + right);
 		}
 
 		GeologyEditorSession.OreSourceGroup sulfurGroup = null;
