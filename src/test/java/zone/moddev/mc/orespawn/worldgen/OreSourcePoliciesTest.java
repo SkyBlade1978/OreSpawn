@@ -15,6 +15,7 @@ import com.google.gson.JsonPrimitive;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import zone.moddev.mc.orespawn.test.Forge12TestBootstrap;
+import zone.moddev.mc.orespawn.util.JsonCopies;
 
 class OreSourcePoliciesTest {
 	@BeforeAll
@@ -340,6 +341,43 @@ class OreSourcePoliciesTest {
 			}
 		}
 		assertTrue(outputOnly);
+	}
+
+	@Test
+	void staleMissingExternalDuplicateDoesNotKeepManagedOutputRed() {
+		JsonObject root = root();
+		addOre(root, "mineralogy:sulfur", "mineralogy", "minecraft:iron_ore",
+				"orespawn:sulfur", "minecraft:overworld", null);
+		addOre(root, "electricadvantage:sulfur", "electricadvantage", "minecraft:gold_ore",
+				"orespawn:sulfur", "minecraft:overworld", null);
+		root.getAsJsonObject("ores").getAsJsonObject("electricadvantage:sulfur")
+				.addProperty("enabled", false);
+		OreSourcePolicies.initialize(root, false);
+
+		JsonObject policy = policy(root);
+		JsonObject external = null;
+		for (JsonElement element : policy.getAsJsonArray("candidates")) {
+			JsonObject candidate = element.getAsJsonObject();
+			if ("electricadvantage:sulfur".equals(candidate.get("source_id").getAsString())) {
+				external = JsonCopies.copy(candidate);
+			}
+		}
+		assertTrue(external != null);
+		external.addProperty("source_id", "external/minecraft:gold_ore/0");
+		external.addProperty("loaded", false);
+		external.addProperty("placement_active", false);
+		external.addProperty("external", true);
+		policy.getAsJsonArray("candidates").add(external);
+		policy.addProperty("mode", "keep_separate");
+		policy.addProperty("output_mode", "single");
+		policy.addProperty("review_required", false);
+		policy.addProperty("status", "external_generation");
+
+		assertTrue(OreSourcePolicies.initialize(root, false));
+		assertEquals("separate", policy(root).get("status").getAsString());
+		assertEquals("separate", OreSourcePolicies.snapshot(root).groups().get(0).status);
+		assertEquals(3, policy(root).getAsJsonArray("candidates").size(),
+				"The missing historical candidate remains available for deterministic restoration");
 	}
 
 	@Test

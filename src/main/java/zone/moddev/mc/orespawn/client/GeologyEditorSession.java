@@ -392,10 +392,12 @@ final class GeologyEditorSession {
 				int owner = left.owner.compareTo(right.owner);
 				return owner != 0 ? owner : left.sourceId.compareTo(right.sourceId);
 			});
+			JsonObject viewPolicy = JsonCopies.copy(policy);
+			refreshOreSourceStatus(viewPolicy);
 			OreSourceGroup group = new OreSourceGroup(entry.getKey(), material, domain,
 					displayName, groupDictionary, curated,
 					string(policy, "mode", "keep_separate"), outputMode(policy),
-					string(policy, "status", "review_required"),
+					string(viewPolicy, "status", "review_required"),
 					candidates, decimalMap(policy, "outputs"), stringMap(policy, "placement_sources"));
 			if (!bool(policy, "dormant", false)) result.add(group);
 		}
@@ -746,7 +748,7 @@ final class GeologyEditorSession {
 				String sourceId = string(candidate, "source_id", "");
 				if (!bool(candidate, "loaded", false)) missing.add(sourceId);
 				if (!bool(candidate, "placement_active", false)) inactivePlacements.add(sourceId);
-				external |= bool(candidate, "external", false);
+				external |= bool(candidate, "external", false) && bool(candidate, "loaded", false);
 			}
 		}
 		Map<String, Double> outputs = decimalMap(policy, "outputs");

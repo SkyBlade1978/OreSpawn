@@ -33,6 +33,7 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
+import zone.moddev.mc.orespawn.util.JsonCopies;
 import zone.moddev.mc.orespawn.worldgen.WorldGeologyProfile;
 
 /** Build-only client probe. It is compiled and packaged outside every release artifact. */
@@ -362,6 +363,7 @@ public final class ClientProbeTestMod {
 					+ OreSourceGroupSettingsScreen.placementChannels(sulfurGroup));
 		}
 		validateKeepOriginalAcceptance(minecraft, parent, session, sulfurGroup.key);
+		validateStaleExternalClassification(minecraft, parent, session, sulfurGroup.key);
 		oreSourcesLayoutValidated = true;
 	}
 
@@ -404,6 +406,48 @@ public final class ClientProbeTestMod {
 				|| !before.mode.equals(after.mode) || !before.outputs.equals(after.outputs)
 				|| !before.placements.equals(after.placements)) {
 			throw new IllegalStateException("Accept changed Keep Original instead of only clearing review");
+		}
+	}
+
+	private void validateStaleExternalClassification(Minecraft minecraft, GuiScreen parent,
+			GeologyEditorSession source, String key) {
+		JsonObject root = source.profile().rootCopy();
+		JsonObject policy = root.getAsJsonObject("ore_source_policies").getAsJsonObject(key);
+		JsonObject managed = null;
+		for (com.google.gson.JsonElement element : policy.getAsJsonArray("candidates")) {
+			JsonObject candidate = element.getAsJsonObject();
+			if ("electricadvantage:sulfur_ore".equals(candidate.get("registry_id").getAsString())
+					&& !candidate.get("external").getAsBoolean()) managed = candidate;
+		}
+		if (managed == null) throw new IllegalStateException("Missing managed Electric Advantage output");
+		JsonObject external = JsonCopies.copy(managed);
+		external.addProperty("source_id", "external/electricadvantage:sulfur_ore/0");
+		external.addProperty("loaded", false);
+		external.addProperty("placement_active", false);
+		external.addProperty("external", true);
+		policy.getAsJsonArray("candidates").add(external);
+		policy.addProperty("mode", "keep_separate");
+		policy.addProperty("output_mode", "single");
+		policy.addProperty("review_required", false);
+		policy.addProperty("status", "external_generation");
+		JsonObject onlyPolicy = new JsonObject();
+		onlyPolicy.add(key, policy);
+		root.add("ore_source_policies", onlyPolicy);
+		GeologyEditorSession staleSession = new GeologyEditorSession(
+				WorldGeologyProfile.fromJson(root, source.profile()));
+		GeologyEditorSession.OreSourceGroup group = staleSession.oreSourceGroups().get(0);
+		if (group.needsAttention() || !"separate".equals(group.status)
+				|| OreSourceListScreen.groupRowColor(group) != 0xFFFF55) {
+			throw new IllegalStateException("Stale missing external duplicate remained red: status="
+					+ group.status + ", attention=" + group.needsAttention());
+		}
+		OreSourceListScreen screen = new OreSourceListScreen(parent, staleSession);
+		screen.setWorldAndResolution(minecraft, 426, 265);
+		for (GuiButton widget : screen.buttons) {
+			String caption = TextFormatting.getTextWithoutFormattingCodes(widget.displayString);
+			if (I18n.format("button.orespawn.ore_source.accept").equals(caption)) {
+				throw new IllegalStateException("Resolved stale external duplicate still requested acceptance");
+			}
 		}
 	}
 

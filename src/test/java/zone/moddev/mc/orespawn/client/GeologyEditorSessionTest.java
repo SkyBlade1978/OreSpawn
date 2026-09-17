@@ -343,6 +343,32 @@ class GeologyEditorSessionTest {
 				"Accept remains pending until the main editor saves the profile");
 	}
 
+	@Test
+	void missingExternalDuplicateCannotOverrideItsLoadedManagedOutput() {
+		JsonObject root = profileWithTwoOreOutputs().rootCopy();
+		JsonObject policy = root.getAsJsonObject("ore_source_policies")
+				.getAsJsonObject("orespawn:sulfur|minecraft:overworld");
+		JsonObject managed = policy.getAsJsonArray("candidates").get(1).getAsJsonObject();
+		JsonObject external = zone.moddev.mc.orespawn.util.JsonCopies.copy(managed);
+		external.addProperty("source_id", "external/minecraft:gold_ore/0");
+		external.addProperty("loaded", false);
+		external.addProperty("placement_active", false);
+		external.addProperty("external", true);
+		policy.getAsJsonArray("candidates").add(external);
+		policy.addProperty("review_required", false);
+		policy.addProperty("status", "external_generation");
+		WorldGeologyProfile profile = WorldGeologyProfile.fromJson(root,
+				WorldGeologyProfile.recommended(false));
+		JsonObject before = profile.rootCopy();
+
+		GeologyEditorSession.OreSourceGroup group =
+				new GeologyEditorSession(profile).oreSourceGroups().get(0);
+
+		assertEquals("separate", group.status);
+		assertFalse(group.needsAttention());
+		assertEquals(before, profile.rootCopy(), "Deriving the visible status must not rewrite the profile");
+	}
+
 	private static WorldGeologyProfile profileWithOreSourcePolicy() {
 		JsonObject root = WorldGeologyProfile.recommended(false).toJson();
 		JsonObject policy = new JsonObject();

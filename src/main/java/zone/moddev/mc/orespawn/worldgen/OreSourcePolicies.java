@@ -327,7 +327,7 @@ final class OreSourcePolicies {
 		boolean review = false;
 		for (Candidate candidate : candidates) {
 			current.put(candidate.sourceId, candidate);
-			external |= candidate.external;
+			external |= candidate.external && candidate.loaded;
 			review |= candidate.reviewRequired;
 		}
 		Map<String, String> outputs = stringMap(policy, "outputs");

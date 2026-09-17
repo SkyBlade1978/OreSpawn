@@ -31,6 +31,9 @@ Version 4.1.0.110021
   Saltpeter distinct, deduplicate identical registry states, and allow confirmed
   alias reassignment plus stable custom groups. Group edits are saved to the
   world and future-world defaults only when the main editor's Done is accepted.
+* Ignore missing historical external-candidate records when the same registry
+  state is now supplied by a loaded managed provider, preventing resolved
+  groups from remaining falsely red while retaining the dormant record.
 * Add provider schema 5 material and placement-channel declarations, global
   schema 8 and world-profile schema 7 while retaining older readable schemas.
 * Add an extended, binary-compatible ore generation context exposing stable
