@@ -544,17 +544,49 @@ final class GeologyEditorSession {
 		rebuildOreSourcePolicies();
 	}
 
-	void deleteOreMaterialGroup(String material) {
-		if (!validResource(material) || "orespawn:sulfur".equals(material)
-				|| "orespawn:aluminum".equals(material)) return;
-		section("ore_material_groups").remove(material);
+	boolean deleteEmptyOreMaterialGroup(String material) {
+		if (!isCustomMaterial(material)) return false;
+		JsonObject groups = section("ore_material_groups");
+		if (!groups.has(material) || !groups.get(material).isJsonObject()
+				|| !stringList(groups.getAsJsonObject(material), "ore_dictionary_entries").isEmpty()) {
+			return false;
+		}
+		groups.remove(material);
+		markMaterialPoliciesDormant(material);
+		rebuildOreSourcePolicies();
+		return true;
+	}
+
+	boolean dissolveOreMaterialGroup(String material) {
+		if (!isCustomMaterial(material)) return false;
+		JsonObject groups = section("ore_material_groups");
+		if (!groups.has(material) || !groups.get(material).isJsonObject()) return false;
+		List<String> aliases = stringList(groups.getAsJsonObject(material), "ore_dictionary_entries");
+		if (aliases.isEmpty()) return false;
+		groups.remove(material);
+		for (String alias : aliases) {
+			String restoredMaterial = inferredMaterialForAlias(alias);
+			JsonObject definition = objectEntry(groups, restoredMaterial);
+			if (!definition.has("display_name")) {
+				definition.addProperty("display_name", displayName(restoredMaterial));
+			}
+			List<String> restoredAliases = stringList(definition, "ore_dictionary_entries");
+			if (!restoredAliases.contains(alias)) restoredAliases.add(alias);
+			Collections.sort(restoredAliases);
+			definition.add("ore_dictionary_entries", strings(restoredAliases));
+		}
+		markMaterialPoliciesDormant(material);
+		rebuildOreSourcePolicies();
+		return true;
+	}
+
+	private void markMaterialPoliciesDormant(String material) {
 		for (Entry<String, JsonElement> entry : section("ore_source_policies").entrySet()) {
 			if (entry.getValue().isJsonObject()
 					&& material.equals(string(entry.getValue().getAsJsonObject(), "material", ""))) {
 				entry.getValue().getAsJsonObject().addProperty("dormant", true);
 			}
 		}
-		rebuildOreSourcePolicies();
 	}
 
 	boolean oreMaterialGroupsChanged() {
@@ -573,20 +605,22 @@ final class GeologyEditorSession {
 
 	private void rebuildOreSourcePolicies() {
 		JsonObject policies = section("ore_source_policies");
+		Map<String, Set<String>> previousMembers = new LinkedHashMap<>();
 		Map<String, JsonObject> candidates = new LinkedHashMap<>();
 		for (Entry<String, JsonElement> entry : policies.entrySet()) {
 			if (!entry.getValue().isJsonObject()) continue;
 			JsonObject policy = entry.getValue().getAsJsonObject();
+			Set<String> members = new LinkedHashSet<>();
 			if (!policy.has("candidates") || !policy.get("candidates").isJsonArray()) continue;
 			boolean hasCandidates = policy.getAsJsonArray("candidates").size() > 0;
 			for (JsonElement element : policy.getAsJsonArray("candidates")) {
 				if (!element.isJsonObject()) continue;
 				JsonObject candidate = JsonCopies.copy(element.getAsJsonObject());
-				String identity = string(candidate, "source_id", "") + '|'
-						+ string(candidate, "placement_channel", "orespawn:standard") + '|'
-						+ string(candidate, "domain", string(policy, "domain", ""));
+				String identity = candidateIdentity(candidate, string(policy, "domain", ""));
+				members.add(identity);
 				candidates.put(identity, candidate);
 			}
+			previousMembers.put(entry.getKey(), members);
 			String material = string(policy, "material", "");
 			if (!hasCandidates && section("ore_material_groups").has(material)) {
 				policy.remove("dormant");
@@ -617,26 +651,106 @@ final class GeologyEditorSession {
 			if (!policy.has("mode")) policy.addProperty("mode", "keep_separate");
 			if (!policy.has("output_mode")) policy.addProperty("output_mode", "custom");
 			JsonArray array = new JsonArray();
-			for (JsonObject candidate : entry.getValue()) array.add(candidate);
-			policy.add("candidates", array);
-			JsonObject outputs = objectEntry(policy, "outputs");
-			if (outputs.entrySet().isEmpty()) for (JsonObject candidate : outputCandidateJson(policy)) {
-				if (!bool(candidate, "external", false)) {
-					outputs.addProperty(string(candidate, "source_id", ""), 1.0D);
-				}
-			}
-			JsonObject placements = objectEntry(policy, "placement_sources");
+			Set<String> currentMembers = new LinkedHashSet<>();
 			for (JsonObject candidate : entry.getValue()) {
-				if (bool(candidate, "placement_active", false) && !bool(candidate, "external", false)) {
-					String channel = string(candidate, "placement_channel", "orespawn:standard");
-					if (!placements.has(channel)) placements.addProperty(channel,
-							string(candidate, "source_id", ""));
-				}
+				array.add(candidate);
+				currentMembers.add(candidateIdentity(candidate, domain));
 			}
-			policy.addProperty("review_required", outputCandidateJson(policy).size() > 1);
+			policy.add("candidates", array);
+			reconcileOreSourceOutputs(policy);
+			reconcileOreSourcePlacements(policy);
+			Set<String> previous = previousMembers.get(entry.getKey());
+			boolean membershipChanged = previous == null || !previous.equals(currentMembers);
+			if (membershipChanged) {
+				policy.addProperty("review_required", outputCandidateJson(policy).size() > 1);
+			}
 			refreshOreSourceStatus(policy);
 			policies.add(entry.getKey(), policy);
 		}
+	}
+
+	private static void reconcileOreSourceOutputs(JsonObject policy) {
+		List<JsonObject> candidates = outputCandidateJson(policy);
+		Set<String> candidateIds = allOutputCandidateIds(policy);
+		JsonObject outputs = objectEntry(policy, "outputs");
+		for (String sourceId : new ArrayList<>(JsonCopies.keys(outputs))) {
+			if (!candidateIds.contains(sourceId)) outputs.remove(sourceId);
+		}
+		String mode = string(policy, "mode", "keep_separate");
+		String outputMode = outputMode(policy);
+		if ("keep_separate".equals(mode) || "balanced".equals(outputMode)) {
+			for (JsonObject candidate : candidates) {
+				String sourceId = string(candidate, "source_id", "");
+				if (!sourceId.isEmpty() && bool(candidate, "loaded", false)) {
+					outputs.addProperty(sourceId, 1.0D);
+				}
+			}
+		} else if ("single".equals(outputMode)) {
+			String selected = "";
+			for (String sourceId : JsonCopies.keys(outputs)) {
+				if (candidateIds.contains(sourceId)) {
+					selected = sourceId;
+					break;
+				}
+			}
+			if (selected.isEmpty()) {
+				selected = candidates.isEmpty() ? "" : string(candidates.get(0), "source_id", "");
+			}
+			outputs.entrySet().clear();
+			if (!selected.isEmpty()) outputs.addProperty(selected, 1.0D);
+		}
+	}
+
+	private static void reconcileOreSourcePlacements(JsonObject policy) {
+		Map<String, Set<String>> retainedChoices = new LinkedHashMap<>();
+		Map<String, List<JsonObject>> loadedChoices = new LinkedHashMap<>();
+		if (policy.has("candidates") && policy.get("candidates").isJsonArray()) {
+			for (JsonElement element : policy.getAsJsonArray("candidates")) {
+				if (!element.isJsonObject()) continue;
+				JsonObject candidate = element.getAsJsonObject();
+				if (bool(candidate, "external", false) || bool(candidate, "enrichment", false)) continue;
+				String channel = string(candidate, "placement_channel", "orespawn:standard");
+				String sourceId = string(candidate, "source_id", "");
+				if (!sourceId.isEmpty()) {
+					retainedChoices.computeIfAbsent(channel, ignored -> new LinkedHashSet<>()).add(sourceId);
+				}
+				if (bool(candidate, "loaded", false) && bool(candidate, "placement_active", false)) {
+					loadedChoices.computeIfAbsent(channel, ignored -> new ArrayList<>()).add(candidate);
+				}
+			}
+		}
+		JsonObject placements = objectEntry(policy, "placement_sources");
+		for (String channel : new ArrayList<>(JsonCopies.keys(placements))) {
+			String selected = string(placements, channel, "");
+			if (!retainedChoices.getOrDefault(channel, Collections.emptySet()).contains(selected)) {
+				placements.remove(channel);
+			}
+		}
+		for (Entry<String, List<JsonObject>> entry : loadedChoices.entrySet()) {
+			if (!placements.has(entry.getKey()) && !entry.getValue().isEmpty()) {
+				placements.addProperty(entry.getKey(), string(entry.getValue().get(0), "source_id", ""));
+			}
+		}
+	}
+
+	private static Set<String> allOutputCandidateIds(JsonObject policy) {
+		Set<String> result = new LinkedHashSet<>();
+		if (policy.has("candidates") && policy.get("candidates").isJsonArray()) {
+			for (JsonElement element : policy.getAsJsonArray("candidates")) {
+				if (!element.isJsonObject()) continue;
+				JsonObject candidate = element.getAsJsonObject();
+				if (bool(candidate, "enrichment", false)) continue;
+				String sourceId = string(candidate, "source_id", "");
+				if (!sourceId.isEmpty()) result.add(sourceId);
+			}
+		}
+		return result;
+	}
+
+	private static String candidateIdentity(JsonObject candidate, String fallbackDomain) {
+		return string(candidate, "source_id", "") + '|'
+				+ string(candidate, "placement_channel", "orespawn:standard") + '|'
+				+ string(candidate, "domain", fallbackDomain);
 	}
 
 	private String materialForAliases(List<String> aliases) {
@@ -650,6 +764,16 @@ final class GeologyEditorSession {
 		}
 		return materials.size() == 1 ? materials.iterator().next()
 				: materials.size() > 1 ? "orespawn:review_required" : "";
+	}
+
+	private static boolean isCustomMaterial(String material) {
+		return material != null && material.startsWith("orespawn:custom/") && validResource(material);
+	}
+
+	private static String inferredMaterialForAlias(String alias) {
+		if ("oreSulfur".equals(alias) || "oreSulphur".equals(alias)) return "orespawn:sulfur";
+		if ("oreAluminum".equals(alias) || "oreAluminium".equals(alias)) return "orespawn:aluminum";
+		return "orespawn:" + alias.substring(3).toLowerCase(Locale.ROOT);
 	}
 
 	void setOreSourceMode(String key, boolean consolidated) {
@@ -933,6 +1057,18 @@ final class GeologyEditorSession {
 		boolean isRoutineSingleSource() {
 			return !needsAttention() && oreDictionaryEntries.size() == 1
 					&& outputCandidates().size() == 1;
+		}
+
+		boolean isCustom() {
+			return isCustomMaterial(material);
+		}
+
+		boolean canDeleteEmpty() {
+			return isCustom() && oreDictionaryEntries.isEmpty();
+		}
+
+		boolean canDissolve() {
+			return isCustom() && !oreDictionaryEntries.isEmpty();
 		}
 
 		boolean isRedundantSeparatePolicy() {

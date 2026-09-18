@@ -55,6 +55,27 @@ class OreSourcePlacementScreenTest {
 	}
 
 	@Test
+	void customGroupActionsAndPlacementChoiceCountsDescribeTheCurrentState() {
+		OreSourceCandidate first = candidate("first", "orespawn:standard", true, true, false);
+		OreSourceCandidate second = candidate("second", "orespawn:standard", true, true, false);
+		OreSourceGroup empty = customGroup(Collections.emptyList(), Collections.emptyList());
+		OreSourceGroup populated = customGroup(Collections.singletonList("oreTest"),
+				Arrays.asList(first, second));
+		OreSourceGroup discovered = group("keep_separate", "review_required",
+				Collections.singletonList("oreTest"), Arrays.asList(first, second));
+
+		assertTrue(empty.isCustom());
+		assertTrue(empty.canDeleteEmpty());
+		assertFalse(empty.canDissolve());
+		assertTrue(populated.isCustom());
+		assertFalse(populated.canDeleteEmpty());
+		assertTrue(populated.canDissolve());
+		assertFalse(discovered.isCustom());
+		assertFalse(discovered.canDeleteEmpty());
+		assertFalse(discovered.canDissolve());
+	}
+
+	@Test
 	void groupColoursSeparateRoutineResolvedAndUnresolvedEntries() {
 		OreSourceCandidate first = candidate("first", "first:ore", "orespawn:standard",
 				true, true, false);
@@ -107,5 +128,13 @@ class OreSourcePlacementScreenTest {
 				"minecraft:overworld", "Test", aliases, false, mode, "balanced", status,
 				candidates, Collections.unmodifiableMap(new LinkedHashMap<>()),
 				Collections.emptyMap());
+	}
+
+	private static OreSourceGroup customGroup(List<String> aliases,
+			List<OreSourceCandidate> candidates) {
+		return new OreSourceGroup("orespawn:custom/custom_group|minecraft:overworld",
+				"orespawn:custom/custom_group", "minecraft:overworld", "Custom Group",
+				aliases, false, "keep_separate", "custom", "review_required", candidates,
+				Collections.emptyMap(), Collections.emptyMap());
 	}
 }

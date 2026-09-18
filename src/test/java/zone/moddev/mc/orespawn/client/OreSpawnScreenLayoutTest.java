@@ -150,6 +150,13 @@ class OreSpawnScreenLayoutTest {
 		assertTrue(settings.contains("new TextComponentString(\"?\")"));
 		assertTrue(settings.contains("label.orespawn.ore_source.standard_veins"));
 		assertTrue(settings.contains("placementSelectable(group, channel)"));
+		assertTrue(settings.contains("placementSourceLabel(source, choices.size())"));
+		assertTrue(settings.contains("group.canDeleteEmpty()"));
+		assertTrue(settings.contains("group.canDissolve()"));
+		assertTrue(settings.contains("button.orespawn.ore_source.confirm_dissolve"));
+		assertTrue(settings.contains("session.deleteEmptyOreMaterialGroup(group.material)"));
+		assertTrue(settings.contains("session.dissolveOreMaterialGroup(group.material)"));
+		assertFalse(settings.contains("session.deleteOreMaterialGroup(group.material)"));
 		assertTrue(settings.contains("contentX + contentWidth - doneWidth, height - 28"));
 		assertTrue(settings.contains("contentX + 2, height - 22, 0xFF5555"));
 		assertTrue(settings.contains("renderStringTooltip(java.util.Collections.singletonList(error)"));

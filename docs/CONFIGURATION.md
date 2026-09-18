@@ -225,8 +225,12 @@ Each `ore_material_groups` entry has a persistent registry-style group ID, a
 names and may belong to only one group. Renaming a group does not change its
 ID. OreSpawn supplies Sulfur (`oreSulfur`, `oreSulphur`) and Aluminum
 (`oreAluminum`, `oreAluminium`) groups; Niter and Saltpeter deliberately remain
-separate. The UI can create and delete custom groups, confirm moving an alias
-from another group, or reset a curated group to its shipped defaults.
+separate. The UI can create custom groups and confirm moving an alias from
+another group. An empty custom group can be deleted immediately; a populated
+custom group requires a confirmed dissolution that returns each alias to its
+deterministic inferred or curated group. Automatically discovered groups
+cannot be deleted because they represent the loaded Ore Dictionary. Curated
+Sulfur and Aluminum groups instead offer Reset Defaults.
 
 Each `ore_source_policies` key combines the group ID with an exact dimension or
 existing dimension-selector ID. `mode` is `consolidated` or `keep_separate`.
@@ -254,9 +258,11 @@ frequency, shape, depth and host restrictions for each channel. `orespawn:standa
 is shown as **Standard veins**; exact custom-channel IDs remain available in
 tooltips. A sole active managed source is read-only, multiple active managed
 sources are selectable, and independent external generators are never offered
-as placement owners. The compact help and row tooltips explain whether a rule is
-fixed, selectable, missing or inactive under Keep Original without reducing the
-alias-list height.
+as placement owners. Each row shows the selected source and the available
+choice count. It cycles only in a consolidated mode; under Keep Original it is
+informational because the original rules remain independent. The compact help
+and row tooltips explain fixed, selectable, missing and inactive states without
+reducing the alias-list height.
 
 Native vanilla ore rules are active placement sources only when
 `manage_vanilla_ores` is enabled. Changing that option refreshes the pending

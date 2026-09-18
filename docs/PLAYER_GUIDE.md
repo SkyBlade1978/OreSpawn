@@ -63,9 +63,16 @@ safely instead of breaking world creation.
   name, Ore Dictionary aliases and **Placement Rules**. Outputs decide which
   block is used; Placement Rules decide the frequency, shape, depth and host
   restrictions for each managed channel. A single managed source is read-only;
-  multiple managed sources can be selected. Hover the Placement Rules help or
+  a row with multiple sources shows the choice count and can be clicked to
+  cycle the source after Balanced, Single or Custom is selected. Under Keep
+  Original the row is informational because every rule remains independent.
+  Hover the Placement Rules help or
   a rule row to see whether it is fixed, selectable, missing, or inactive under
   Keep Original.
+  Empty custom groups can be deleted immediately. A populated custom group can
+  be dissolved after a second confirmation, returning all aliases to their
+  inferred or curated groups. Automatically discovered groups cannot be
+  deleted, while the curated Sulfur and Aluminum groups can be reset.
   Turning **Manage Vanilla Ores** on makes native vanilla rules available here
   immediately. When it is off, OreSpawn will not let a vanilla ore alias be
   moved into another group; the screen tells you to enable vanilla management

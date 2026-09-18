@@ -65,7 +65,10 @@ one-output entries are hidden by default and available through **Show All**.
 Red groups need attention, yellow groups have a saved rule and green entries
 need no action. Each group's cog opens its friendly name, exact Ore Dictionary
 aliases and clearly labelled Placement Rules. Outputs choose the ore block;
-Placement Rules choose the frequency,
+empty custom groups can be deleted, while populated custom groups use a
+confirmed **Dissolve Group** action that returns every alias to its inferred or
+curated group. Automatically discovered groups are factual and cannot be
+deleted. Placement Rules choose the frequency,
 shape, depth and host restrictions for each managed channel. New worlds balance
 all eligible outputs in reviewed MMD conflicts while running one placement
 budget, so sulfur/sulphur providers do not multiply abundance. **Single**
@@ -73,8 +76,9 @@ chooses one output, **Custom** allows a weighted subset, and **Keep Original**
 preserves every active rule and restores the selections that were present when
 the editor was opened. A red Keep Original group exposes **Accept** so its
 unchanged policy can be marked reviewed; this remains pending until the main
-editor's **Done** is used. The Placement Rules help and row tooltips state whether
-a channel is fixed, selectable, missing, or inactive under Keep Original.
+editor's **Done** is used. A Placement Rules row reports how many managed
+sources are available, can cycle among them only in a consolidated mode, and
+its help explains that the choice is inactive under Keep Original.
 Existing worlds start in
 Keep Original until their owner explicitly changes a group. Third-party generators remain outside
 OreSpawn's control and are clearly reported rather than disabled.

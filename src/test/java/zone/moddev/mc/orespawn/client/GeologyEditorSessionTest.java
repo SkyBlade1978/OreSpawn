@@ -32,6 +32,12 @@ class GeologyEditorSessionTest {
 			registered |= "oreDiamond".equals(OreDictionary.getOreName(id));
 		}
 		if (!registered) OreDictionary.registerOre("oreDiamond", diamond);
+		ItemStack emerald = new ItemStack(Blocks.EMERALD_ORE);
+		registered = false;
+		for (int id : OreDictionary.getOreIDs(emerald)) {
+			registered |= "oreEmerald".equals(OreDictionary.getOreName(id));
+		}
+		if (!registered) OreDictionary.registerOre("oreEmerald", emerald);
 	}
 
 	@Test
@@ -270,10 +276,11 @@ class GeologyEditorSessionTest {
 		assertTrue(session.oreMaterialGroupsChanged());
 		assertEquals(before, original.rootCopy(), "pending group edits must not persist before main Done");
 
-		session.deleteOreMaterialGroup(material);
-		assertEquals(null, session.oreDictionaryOwner("oreSulfur"));
+		assertTrue(session.dissolveOreMaterialGroup(material));
+		assertEquals("orespawn:sulfur", session.oreDictionaryOwner("oreSulfur"));
+		assertEquals("orespawn:copperzinc", session.oreDictionaryOwner("oreCopperZinc"));
 		assertFalse(key.equals(session.addOreMaterialGroup()),
-				"deleted group IDs remain reserved by their dormant policy");
+				"dissolved group IDs remain reserved by their dormant policy");
 		session.resetOreMaterialGroup("orespawn:sulfur");
 		assertEquals("orespawn:sulfur", session.oreDictionaryOwner("oreSulfur"));
 	}
@@ -314,6 +321,101 @@ class GeologyEditorSessionTest {
 		assertTrue(session.addOreMaterialAlias(customMaterial, "oreDiamond", true));
 		assertEquals(customMaterial, session.oreDictionaryOwner("oreDiamond"));
 		assertTrue(group(session, customMaterial).hasManagedPlacementSource());
+	}
+
+	@Test
+	void managedVanillaAliasesBuildOneLiveReviewWithoutEmptyOrStaleOutputs() {
+		GeologyEditorSession session = new GeologyEditorSession(profileWithNativePreciousOres());
+		session.setManageVanillaOres(true);
+		String key = session.addOreMaterialGroup();
+		String material = key.substring(0, key.indexOf('|'));
+		session.renameOreMaterialGroup(material, "Precious Stones");
+
+		assertTrue(session.addOreMaterialAlias(material, "oreDiamond", true));
+		assertTrue(session.addOreMaterialAlias(material, "oreEmerald", true));
+
+		GeologyEditorSession.OreSourceGroup review = group(session, material);
+		assertEquals(Arrays.asList("oreDiamond", "oreEmerald"), review.oreDictionaryEntries);
+		assertEquals(2, review.outputCandidates().size());
+		assertEquals(2, review.outputs.size(), "Keep Original must expose both moved outputs immediately");
+		assertEquals("minecraft:diamond_ore", review.placements.get("orespawn:standard"));
+		assertEquals(2, OreSourceListScreen.placementCandidates(review, "orespawn:standard").size());
+		assertTrue(review.needsReview());
+		assertEquals(0xFF5555, OreSourceListScreen.groupRowColor(review));
+
+		session.acceptOreSourcePolicy(key);
+		GeologyEditorSession.OreSourceGroup accepted = group(session, material);
+		assertFalse(accepted.needsAttention());
+		assertEquals(0xFFFF55, OreSourceListScreen.groupRowColor(accepted));
+
+		String unrelated = session.addOreMaterialGroup();
+		String unrelatedMaterial = unrelated.substring(0, unrelated.indexOf('|'));
+		assertTrue(session.addOreMaterialAlias(unrelatedMaterial, "oreCopperZinc", false));
+		assertFalse(group(session, material).needsReview(),
+				"editing another group must not reopen an accepted Precious Stones policy");
+
+		session.setOreSourceOutputMode(key, "balanced");
+		GeologyEditorSession.OreSourceGroup balanced = group(session, material);
+		assertEquals("consolidated", balanced.mode);
+		assertEquals(2, balanced.outputs.size());
+		assertEquals(1, balanced.placements.size());
+		assertFalse(balanced.needsAttention());
+	}
+
+	@Test
+	void customGroupRemovalDeletesOnlyEmptyGroupsAndDissolvesPopulatedGroups() {
+		GeologyEditorSession session = new GeologyEditorSession(profileWithNativePreciousOres());
+		session.setManageVanillaOres(true);
+
+		String emptyKey = session.addOreMaterialGroup();
+		String emptyMaterial = emptyKey.substring(0, emptyKey.indexOf('|'));
+		assertTrue(session.deleteEmptyOreMaterialGroup(emptyMaterial));
+		assertFalse(session.oreSourceGroups().stream()
+				.anyMatch(group -> emptyMaterial.equals(group.material)));
+
+		String key = session.addOreMaterialGroup();
+		String material = key.substring(0, key.indexOf('|'));
+		session.renameOreMaterialGroup(material, "Precious Stones");
+		assertTrue(session.addOreMaterialAlias(material, "oreDiamond", true));
+		assertTrue(session.addOreMaterialAlias(material, "oreEmerald", true));
+		assertFalse(session.deleteEmptyOreMaterialGroup(material));
+		assertFalse(session.deleteEmptyOreMaterialGroup("orespawn:diamond"),
+				"discovered groups are facts rather than deletable custom records");
+
+		assertTrue(session.dissolveOreMaterialGroup(material));
+		assertEquals("orespawn:diamond", session.oreDictionaryOwner("oreDiamond"));
+		assertEquals("orespawn:emerald", session.oreDictionaryOwner("oreEmerald"));
+		assertTrue(group(session, "orespawn:diamond").hasManagedPlacementSource());
+		assertTrue(group(session, "orespawn:emerald").hasManagedPlacementSource());
+		assertFalse(session.oreSourceGroups().stream()
+				.anyMatch(group -> material.equals(group.material)));
+		assertFalse(key.equals(session.addOreMaterialGroup()),
+				"dissolved group IDs remain reserved by their dormant policy");
+	}
+
+	@Test
+	void liveGroupReconciliationRetainsSelectedMissingSourcesForDeterministicRestoration() {
+		JsonObject root = profileWithTwoOreOutputs().rootCopy();
+		JsonObject policy = root.getAsJsonObject("ore_source_policies")
+				.getAsJsonObject("orespawn:sulfur|minecraft:overworld");
+		JsonObject missing = policy.getAsJsonArray("candidates").get(1).getAsJsonObject();
+		missing.addProperty("loaded", false);
+		missing.addProperty("placement_active", false);
+		policy.getAsJsonObject("outputs").entrySet().clear();
+		policy.getAsJsonObject("outputs").addProperty("baseminerals:sulfur", 2.0D);
+		policy.getAsJsonObject("placement_sources")
+				.addProperty("orespawn:standard", "baseminerals:sulfur");
+
+		GeologyEditorSession session = new GeologyEditorSession(WorldGeologyProfile.fromJson(root,
+				WorldGeologyProfile.recommended(false)));
+		String customKey = session.addOreMaterialGroup();
+		String customMaterial = customKey.substring(0, customKey.indexOf('|'));
+		session.renameOreMaterialGroup(customMaterial, "Unrelated Group");
+
+		GeologyEditorSession.OreSourceGroup sulfur = group(session, "orespawn:sulfur");
+		assertEquals(2.0D, sulfur.outputs.get("baseminerals:sulfur").doubleValue());
+		assertEquals("baseminerals:sulfur", sulfur.placements.get("orespawn:standard"));
+		assertEquals("missing_source", sulfur.status);
 	}
 
 	@Test
@@ -512,6 +614,26 @@ class GeologyEditorSessionTest {
 		root.add("ore_source_policies", new JsonObject());
 		return WorldGeologyProfile.fromGlobalConfig(root,
 				recommended.geologyMode(), recommended.placeFluidDeposits());
+	}
+
+	private static WorldGeologyProfile profileWithNativePreciousOres() {
+		WorldGeologyProfile diamond = profileWithNativeDiamondOre();
+		JsonObject root = diamond.rootCopy();
+		JsonObject emerald = new JsonObject();
+		emerald.addProperty("enabled", true);
+		emerald.addProperty("source_mod", "minecraft");
+		emerald.addProperty("native_generation", true);
+		emerald.addProperty("block", "minecraft:emerald_ore");
+		JsonObject rule = new JsonObject();
+		rule.addProperty("enabled", true);
+		rule.addProperty("pattern", "clusters");
+		JsonObject dimensions = new JsonObject();
+		dimensions.add("minecraft:overworld", rule);
+		emerald.add("dimensions", dimensions);
+		root.getAsJsonObject("ores").add("minecraft:emerald_ore", emerald);
+		root.add("ore_source_policies", new JsonObject());
+		return WorldGeologyProfile.fromGlobalConfig(root,
+				diamond.geologyMode(), diamond.placeFluidDeposits());
 	}
 
 	private static GeologyEditorSession.OreSourceGroup group(

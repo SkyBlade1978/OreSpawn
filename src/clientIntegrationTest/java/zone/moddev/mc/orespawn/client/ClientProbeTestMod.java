@@ -161,8 +161,10 @@ public final class ClientProbeTestMod {
 					}
 					break;
 				case 7:
-					if (!minecraft.isIntegratedServerRunning() && stateTicks >= 20) {
-						if (minecraft.world != null) minecraft.loadWorld(null);
+					if (stateTicks >= 20) {
+						if (minecraft.world != null || minecraft.isIntegratedServerRunning()) {
+							minecraft.loadWorld(null);
+						}
 						minecraft.launchIntegratedServer(WORLD_DIRECTORY, "OreSpawn Client Smoke",
 								new WorldSettings(0L, GameType.CREATIVE, false, false, WorldType.DEFAULT));
 						nextState(8);
@@ -176,8 +178,10 @@ public final class ClientProbeTestMod {
 					}
 					break;
 				case 9:
-					if (!minecraft.isIntegratedServerRunning() && stateTicks >= 20) {
-						if (minecraft.world != null) minecraft.loadWorld(null);
+					if (stateTicks >= 20) {
+						if (minecraft.world != null || minecraft.isIntegratedServerRunning()) {
+							minecraft.loadWorld(null);
+						}
 						writeMarker();
 						minecraft.shutdown();
 						nextState(10);
@@ -364,7 +368,7 @@ public final class ClientProbeTestMod {
 		}
 		validateKeepOriginalAcceptance(minecraft, parent, session, sulfurGroup.key);
 		validateStaleExternalClassification(minecraft, parent, session, sulfurGroup.key);
-		validateCustomGroupReassignmentLayout(minecraft, screen, session);
+		validateCustomGroupReassignmentLayout(minecraft, parent, session);
 		oreSourcesLayoutValidated = true;
 	}
 
@@ -460,7 +464,10 @@ public final class ClientProbeTestMod {
 			if (customKey.equals(group.key)) customGroup = group;
 		}
 		if (customGroup == null || !customGroup.hasManagedPlacementSource()
-				|| !customGroup.needsReview() || customGroup.outputCandidates().size() != 2) {
+				|| !customGroup.needsReview() || customGroup.outputCandidates().size() != 2
+				|| customGroup.outputs.size() != 2
+				|| OreSourceListScreen.placementCandidates(
+						customGroup, "orespawn:standard").size() != 2) {
 			throw new IllegalStateException("Managed Precious Stones review was not constructed");
 		}
 		OreSourceListScreen outputs = new OreSourceListScreen(parent, customSession);
@@ -470,6 +477,11 @@ public final class ClientProbeTestMod {
 		Button accept = button(outputs, I18n.format("button.orespawn.ore_source.accept"));
 		if (mode == null || accept == null) {
 			throw new IllegalStateException("Managed vanilla review did not retain Keep Original and Accept");
+		}
+		OreSourceListScreen minimum = new OreSourceListScreen(parent, customSession);
+		minimum.setWorldAndResolution(minecraft, 320, 240);
+		if (button(minimum, I18n.format("button.orespawn.ore_source.accept")) == null) {
+			throw new IllegalStateException("Accept was not visible at the minimum supported resolution");
 		}
 		mode.press();
 		GeologyEditorSession.OreSourceGroup after = null;
@@ -485,10 +497,33 @@ public final class ClientProbeTestMod {
 			throw new IllegalStateException("Could not inspect Ore Sources validation state", exception);
 		}
 		if (after == null || !"consolidated".equals(after.mode) || after.needsAttention()
+				|| after.outputs.size() != 2 || after.placements.size() != 1
+				|| OreSourceListScreen.placementCandidates(
+						after, "orespawn:standard").size() != 2
 				|| outputError != null
 				|| button(outputs, I18n.format("button.orespawn.ore_source.accept")) != null) {
 			throw new IllegalStateException("Managed vanilla group did not enter Balanced mode: error="
 					+ outputError + ", mode=" + (after == null ? "missing" : after.mode));
+		}
+
+		OreSourceGroupSettingsScreen dissolve = new OreSourceGroupSettingsScreen(
+				parent, customSession, customKey);
+		dissolve.setWorldAndResolution(minecraft, 426, 265);
+		Button dissolveButton = button(dissolve,
+				I18n.format("button.orespawn.ore_source.dissolve_group"));
+		if (dissolveButton == null) {
+			throw new IllegalStateException("Populated custom group did not expose Dissolve Group");
+		}
+		dissolveButton.press();
+		Button confirm = button(dissolve,
+				I18n.format("button.orespawn.ore_source.confirm_dissolve"));
+		if (confirm == null || !material.equals(customSession.oreDictionaryOwner("oreDiamond"))) {
+			throw new IllegalStateException("Dissolve Group did not require a second confirmation");
+		}
+		confirm.press();
+		if (!"orespawn:diamond".equals(customSession.oreDictionaryOwner("oreDiamond"))
+				|| !"orespawn:emerald".equals(customSession.oreDictionaryOwner("oreEmerald"))) {
+			throw new IllegalStateException("Confirmed dissolution did not restore inferred groups");
 		}
 	}
 

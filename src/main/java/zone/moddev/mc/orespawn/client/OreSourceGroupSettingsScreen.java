@@ -27,6 +27,7 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 	private final String groupKey;
 	private String pendingAliasMove;
 	private String pendingAliasValue;
+	private boolean pendingDissolve;
 	private String error;
 	private int aliasScroll;
 	private int placementScroll;
@@ -58,33 +59,31 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 		}
 		contentWidth = Math.max(240, Math.min(600, width - (MARGIN * 2)));
 		contentX = (width - contentWidth) / 2;
-		int actionWidth = Math.min(78, Math.max(55, contentWidth / 4));
+		boolean hasGroupAction = group.curated || group.canDeleteEmpty() || group.canDissolve();
+		String groupActionKey = group.curated ? "button.orespawn.reset"
+				: group.canDissolve() ? (pendingDissolve
+						? "button.orespawn.ore_source.confirm_dissolve"
+						: "button.orespawn.ore_source.dissolve_group")
+				: "button.orespawn.ore_source.delete_group";
+		int actionWidth = hasGroupAction
+				? Math.min(120, Math.max(55, font.getStringWidth(I18n.format(groupActionKey)) + 10)) : 0;
 		int nameLabelWidth = font.getStringWidth(
 				I18n.format("option.orespawn.ore_source.group_name")) + 8;
 
 		nameField = addButton(new TextFieldWidget(font, contentX + nameLabelWidth, NAME_TOP,
-				contentWidth - nameLabelWidth - actionWidth - 5, 20,
+				contentWidth - nameLabelWidth - actionWidth - (hasGroupAction ? 5 : 0), 20,
 				new TextComponentTranslation("option.orespawn.ore_source.group_name")));
 		nameField.setMaxLength(64);
 		nameField.setValue(group.displayName);
-		Button groupAction = addButton(OreSpawnScreenLayout.button(this, font,
-				contentX + contentWidth - actionWidth, NAME_TOP, actionWidth, 20,
-				new TextComponentTranslation(group.curated ? "button.orespawn.reset"
-						: "button.orespawn.ore_source.delete_group"), button -> {
-			if (group.curated) {
-				session.resetOreMaterialGroup(group.material);
-				pendingAliasMove = null;
-				pendingAliasValue = null;
-				error = null;
-				rebuild();
-			} else {
-				session.deleteOreMaterialGroup(group.material);
-				minecraft.displayGuiScreen(parent);
-			}
-		}));
-		OreSpawnScreenLayout.explain(this, groupAction, group.curated
-				? "tooltip.orespawn.ore_source.reset_group"
-				: "tooltip.orespawn.ore_source.delete_group");
+		if (hasGroupAction) {
+			Button groupAction = addButton(OreSpawnScreenLayout.button(this, font,
+					contentX + contentWidth - actionWidth, NAME_TOP, actionWidth, 20,
+					new TextComponentTranslation(groupActionKey), button -> handleGroupAction(group)));
+			OreSpawnScreenLayout.explain(this, groupAction, group.curated
+					? "tooltip.orespawn.ore_source.reset_group"
+					: group.canDissolve() ? "tooltip.orespawn.ore_source.dissolve_group"
+					: "tooltip.orespawn.ore_source.delete_group");
+		}
 
 		aliasListHeight = aliasListHeight(height);
 		final List<String> aliases = group.oreDictionaryEntries;
@@ -106,6 +105,7 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 				session.removeOreMaterialAlias(group.material, aliases.get(index));
 				pendingAliasMove = null;
 				pendingAliasValue = null;
+				pendingDissolve = false;
 				error = null;
 				captureScroll();
 				rebuild();
@@ -157,7 +157,8 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 				String source = choice < 0
 						? I18n.format("label.orespawn.ore_source.missing")
 						: OreSourceListScreen.candidateLabel(choices.get(choice));
-				return channelLabel(channel) + (placementSelectable(group, channel) ? " > " : " = ") + source;
+				return channelLabel(channel) + (placementSelectable(group, channel) ? " > " : " = ")
+						+ placementSourceLabel(source, choices.size());
 			}
 			@Override protected boolean rowEnabled(int index) {
 				String channel = channels.get(index);
@@ -206,12 +207,38 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 				DialogTexts.GUI_DONE, button -> onClose()));
 	}
 
+	private void handleGroupAction(OreSourceGroup group) {
+		syncName();
+		pendingAliasMove = null;
+		pendingAliasValue = null;
+		if (group.curated) {
+			session.resetOreMaterialGroup(group.material);
+			pendingDissolve = false;
+			error = null;
+			rebuild();
+			return;
+		}
+		if (group.canDeleteEmpty()) {
+			if (session.deleteEmptyOreMaterialGroup(group.material)) minecraft.displayGuiScreen(parent);
+			return;
+		}
+		if (!group.canDissolve()) return;
+		if (!pendingDissolve) {
+			pendingDissolve = true;
+			error = I18n.format("error.orespawn.ore_source.confirm_dissolve");
+			rebuild();
+			return;
+		}
+		if (session.dissolveOreMaterialGroup(group.material)) minecraft.displayGuiScreen(parent);
+	}
+
 	private void addAlias(OreSourceGroup group) {
 		syncName();
 		String alias = aliasField == null ? "" : aliasField.getValue().trim();
 		String owner = session.oreDictionaryOwner(alias);
 		String move = owner == null || owner.equals(group.material) ? null : alias + '|' + owner;
 		if (move != null && session.vanillaOreManagementRequiredForAliasMove(group.material, alias)) {
+			pendingDissolve = false;
 			pendingAliasMove = null;
 			pendingAliasValue = alias;
 			error = I18n.format("error.orespawn.ore_source.manage_vanilla_first");
@@ -219,6 +246,7 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 			return;
 		}
 		if (move != null && !move.equals(pendingAliasMove)) {
+			pendingDissolve = false;
 			pendingAliasMove = move;
 			pendingAliasValue = alias;
 			error = I18n.format("error.orespawn.ore_source.alias_owned",
@@ -232,6 +260,7 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 		}
 		pendingAliasMove = null;
 		pendingAliasValue = null;
+		pendingDissolve = false;
 		error = null;
 		rebuild();
 	}
@@ -283,6 +312,12 @@ final class OreSourceGroupSettingsScreen extends OreSpawnScreen {
 		return "orespawn:standard".equals(channel)
 				? I18n.format("label.orespawn.ore_source.standard_veins")
 				: OreSourceListScreen.display(channel);
+	}
+
+	static String placementSourceLabel(String source, int choices) {
+		return choices > 1
+				? I18n.format("label.orespawn.ore_source.placement_choice_count", source, choices)
+				: source;
 	}
 
 	static boolean placementSelectable(OreSourceGroup group, String channel) {
