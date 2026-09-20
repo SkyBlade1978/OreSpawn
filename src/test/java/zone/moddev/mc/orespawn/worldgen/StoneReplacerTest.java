@@ -1,21 +1,47 @@
 package zone.moddev.mc.orespawn.worldgen;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderOwner;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.placement.PlacedFeature;
 
 class StoneReplacerTest {
+	@Test
+	void sharedMatchingStoneFeatureUsesOneImmutableWrapperAcrossBiomes() {
+		PlacedFeature vanilla = new PlacedFeature(
+				Holder.direct(StoneReplacer.FEATURE), Collections.emptyList());
+		HolderOwner<PlacedFeature> owner = new HolderOwner<>() { };
+		ResourceKey<PlacedFeature> key = ResourceKey.create(Registries.PLACED_FEATURE,
+				Identifier.fromNamespaceAndPath("minecraft", "ore_granite_upper"));
+		Holder.Reference<PlacedFeature> reference = Holder.Reference.createStandAlone(owner, key);
+		reference.bindValue(vanilla);
+		List<Holder<PlacedFeature>> firstBiome = new ArrayList<>(Arrays.asList(reference));
+		List<Holder<PlacedFeature>> secondBiome = new ArrayList<>(Arrays.asList(reference));
+
+		assertTrue(StoneReplacer.wrapVanillaMatchingStoneFeatures(firstBiome));
+		assertTrue(StoneReplacer.wrapVanillaMatchingStoneFeatures(secondBiome));
+		assertSame(firstBiome.get(0), secondBiome.get(0));
+		assertSame(firstBiome.get(0).value(), secondBiome.get(0).value());
+		assertSame(StoneReplacer.FEATURE, vanilla.feature().value());
+	}
+
 	@Test
 	void ordinarySolidRocksCanUseTheSectionFastPath() {
 		assertTrue(StoneReplacer.hasEquivalentHeightAndLightProperties(

@@ -55,7 +55,7 @@ class ReleaseWorkflowContractTest {
 			int jobCount = workflow.equals("ci.yml") ? 2 : 1;
 			int gradleInvocationCount = workflow.equals("ci.yml") ? 3 : 1;
 			assertEquals(jobCount, occurrences(text, "actions/setup-java@"),
-					workflow + " must install the single Forge 65 Java 25 toolchain per job");
+					workflow + " must install the single Forge 66 Java 25 toolchain per job");
 			assertTrue(text.contains("distribution: temurin"), workflow + " must use Temurin");
 			assertEquals(jobCount, occurrences(text, "java-version: '25.0.3+9.0.LTS'"),
 					workflow + " must install the exact Java 25 runtime and toolchain");
@@ -111,6 +111,17 @@ class ReleaseWorkflowContractTest {
 				"cold-bootstrap retries must preserve exact Gradle arguments");
 		assertTrue(ci.contains("Cold Forge bootstrap failed after $attempt attempts"),
 				"the cold bootstrap must fail rather than hide a persistent download defect");
+	}
+
+	@Test
+	void eclipseAlwaysPinsBuildshipToTheActiveJava25Runtime() throws Exception {
+		String build = new String(Files.readAllBytes(
+				Paths.get("build.gradle")), StandardCharsets.UTF_8);
+		assertTrue(build.contains("existingGradleHome = preferences.getProperty("));
+		assertTrue(build.contains("gradle.gradleUserHomeDir"));
+		assertTrue(build.contains("'java.home'                      : System.getProperty('java.home')"));
+		assertTrue(build.contains("JAVA_VERSION=\"25.0.3\""));
+		assertTrue(build.contains("IMPLEMENTOR=\"Eclipse Adoptium\""));
 	}
 
 	private static int occurrences(String text, String needle) {

@@ -1060,7 +1060,7 @@ final class GeologyEditorSession {
 			return true;
 		}
 		return !(block instanceof EntityBlock)
-				&& block.defaultBlockState().blocksMotion()
+				&& block.defaultBlockState().isSolidRender()
 				&& Block.isShapeFullBlock(block.defaultBlockState().getCollisionShape(
 						EmptyBlockGetter.INSTANCE, BlockPos.ZERO));
 	}
@@ -1199,7 +1199,7 @@ final class GeologyEditorSession {
 
 	private static boolean knownBiome(String id) {
 		if (!validResource(id)) return false;
-		// Biomes are dynamic in 1.21.1. Before the live registry is available,
+		// Biomes are dynamic in 26.3. Before the live registry is available,
 		// retain syntactically valid provider IDs for server-side resolution.
 		return ForgeRegistries.BIOMES.getKeys().isEmpty()
 				|| ForgeRegistries.BIOMES.containsKey(Identifier.parse(id));

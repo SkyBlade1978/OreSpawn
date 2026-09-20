@@ -6,6 +6,7 @@ import java.util.Set;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.mojang.serialization.MapCodec;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -20,22 +21,22 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.feature.Feature;
-import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
-import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
+import net.minecraft.util.RandomSource;
 import net.minecraftforge.registries.ForgeRegistries;
 
 /** Optional flat bedrock generation compatible with OreSpawn 3 profiles. */
-public final class FlatBedrockFeature extends Feature<NoneFeatureConfiguration> {
+public final class FlatBedrockFeature implements Feature {
 	public static final FlatBedrockFeature FEATURE = new FlatBedrockFeature();
+	public static final MapCodec<FlatBedrockFeature> CODEC = MapCodec.unit(FEATURE);
 	private static final int BEDROCK_NOISE_DEPTH = 5;
 
 	private static Holder<PlacedFeature> placedFeature;
 	private static volatile Settings settings = Settings.DISABLED;
 
 	private FlatBedrockFeature() {
-		super(NoneFeatureConfiguration.CODEC);
 	}
 
 	public static void registerConfiguredFeature() {
@@ -52,8 +53,14 @@ public final class FlatBedrockFeature extends Feature<NoneFeatureConfiguration> 
 	}
 
 	@Override
-	public boolean place(FeaturePlaceContext<NoneFeatureConfiguration> context) {
-		return flatten(context.level(), context.level().getChunk(context.origin()));
+	public MapCodec<FlatBedrockFeature> codec() {
+		return CODEC;
+	}
+
+	@Override
+	public boolean place(WorldGenLevel world, ChunkGenerator chunkGenerator,
+			RandomSource random, BlockPos origin) {
+		return flatten(world, world.getChunk(origin));
 	}
 
 	static boolean flatten(WorldGenLevel world, ChunkAccess chunk) {

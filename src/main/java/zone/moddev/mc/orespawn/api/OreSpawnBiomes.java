@@ -88,7 +88,6 @@ public final class OreSpawnBiomes {
 				.downfall(climate.downfall())
 				.putAttributes(original.getAttributes())
 				.specialEffects(original.getModifiedSpecialEffects())
-				.mobSpawnSettings(original.getMobSettings())
 				.generationSettings(original.getGenerationSettings());
 		edit.accept(builder);
 		return builder.build();
@@ -96,7 +95,7 @@ public final class OreSpawnBiomes {
 
 	private static UnsupportedOperationException dynamicRegistryException() {
 		return new UnsupportedOperationException(
-				"Minecraft 26.1 biomes are data-driven; register them through a "
+				"Minecraft 26.3 biomes are data-driven; register them through a "
 						+ "BootstrapContext/RegistrySetBuilder or a worldgen/biome JSON resource");
 	}
 }

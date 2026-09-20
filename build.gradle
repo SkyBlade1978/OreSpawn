@@ -37,15 +37,15 @@ def mavenizerLicense = mavenizerToolsDirectory.file('LICENSE-MAVENIZER.txt')
 def mavenizerReadme = mavenizerToolsDirectory.file('README.md')
 def mavenizerFixtureChecksums = [
         (mavenizerCompatibilityJar.asFile):
-                '5ABAB52A3F1BE115381C3CE80D5FD38DBE6C9F4C0B9ECF70A957700EC90FB88B',
+                '4150926F33A696B2088AB2675C1C3B45745CE4F9F2DEB31CCD88C9ADC834062F',
         (mavenizerRuleManifest.asFile):
-                '9437E03FC5E1CB5D605D72F0538C4DF4417B64DB0A57D0AABDC5184781517AC1',
+                '829400D74ECB1BF0CC6107D9980B8328365E3F56D9A5342002D8DF340571BDB7',
         (mavenizerSourcePatch.asFile):
-                '2DA8DD0FD5F112F5B7591113AED06D9A58C584A25F8705E26445A6D2E9D5C78E',
+                'F1402D730A356589AE46C2483AC10E41062E28A748FEBB72F6CB663A28027A41',
         (mavenizerLicense.asFile):
                 '20C17D8B8C48A600800DFD14F95D5CB9FF47066A9641DDEAB48DC54AEC96E331',
         (mavenizerReadme.asFile):
-                'EAD1477F393897C491A10FB86178213A99C360571A8063D551DA0579DF65BA6F'
+                '45AA8B3238D2E8A873FF49862A8EA1ADDBC186E39655436723C0C85773447D36'
 ]
 
 // ForgeGradle invokes Mavenizer during project configuration. Verify the
@@ -106,7 +106,7 @@ java {
 
 // ForgeGradle 7 declares Slime Launcher as Java 8-compatible, but that is a
 // minimum rather than a requirement. Bind it to the qualified target JDK so a
-// clean Forge 65 configuration does not depend on an unrelated Java 8 install.
+// clean Forge 66 configuration does not depend on an unrelated Java 8 install.
 fgtools.configure('slimelauncher') {
     javaLauncher.set(javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(25)
@@ -167,6 +167,8 @@ def applyBenchmarkProperties = { run, String defaultRadius, String defaultRepeti
             providers.gradleProperty('orespawnBenchmarkOreAudit').getOrElse('false')
     run.systemProperty 'orespawn.worldgenBenchmarkFluidAudit',
             providers.gradleProperty('orespawnBenchmarkFluidAudit').getOrElse('false')
+    run.systemProperty 'orespawn.worldgenBenchmarkSpringAudit',
+            providers.gradleProperty('orespawnBenchmarkSpringAudit').getOrElse('false')
     if (providers.gradleProperty('orespawnBenchmarkBiomeAudit').isPresent()) {
         run.systemProperty 'orespawn.worldgenBenchmarkBiomeAudit',
                 providers.gradleProperty('orespawnBenchmarkBiomeAudit').get()
@@ -192,7 +194,7 @@ def applyBenchmarkProperties = { run, String defaultRadius, String defaultRepeti
 
 minecraft {
     mappings channel: project.mapping_channel, version: project.mapping_version
-    // Forge 65 uses official runtime naming. ForgeGradle 7 therefore needs no
+    // Forge 66 uses official runtime naming. ForgeGradle 7 therefore needs no
     // reobfuscation task.
     accessTransformer = 'META-INF/accesstransformer.cfg'
     runs {
@@ -205,7 +207,7 @@ minecraft {
         }
         register('client')
         register('server') {
-            args '--nogui'
+            args 'nogui'
             applyBenchmarkProperties(delegate, '8', '5', '1024')
         }
         register('gameTestServer') {
@@ -216,11 +218,9 @@ minecraft {
         ['Fresh', 'Reload'].each { String phase ->
             register("surfaceIntegration${phase}") {
                 mainClass = 'net.minecraftforge.bootstrap.ForgeBootstrap'
-                args '--launchTarget', 'forge_userdev_server_gametest', '--gameDir', '.'
+                args '--launchTarget', 'forge_userdev_server', '--gameDir', '.', 'nogui'
                 environment 'MCP_MAPPINGS', "official_${minecraft_version}"
                 workingDir = layout.buildDirectory.dir('surface-integration-run')
-                systemProperty 'forge.enableGameTest', 'true'
-                systemProperty 'forge.enabledGameTestNamespaces', 'surfaceprobe'
                 systemProperty 'forge.logging.console.level', 'info'
                 systemProperty 'surfaceprobe.integrationPhase', phase.toLowerCase(Locale.ROOT)
                 mods { create(mod_id) { source sourceSets.main } }
@@ -345,13 +345,13 @@ tasks.register('verifyMavenizerCompatibilityFixture') {
         }
 
         def parsed = new JsonSlurper().parse(mavenizerRuleManifest.asFile)
-        String target = 'net.minecraftforge:forge:26.2-65.1.0'
+        String target = 'net.minecraftforge:forge:26.3-66.0.0'
         if (parsed.schema != 1 || parsed.targets.keySet() != [target] as Set) {
             throw new GradleException('Mavenizer target-rule manifest has unexpected targets or schema')
         }
         def forgeRules = parsed.targets[target]
         if (forgeRules.expectedApplications != 0 || !forgeRules.rules.isEmpty()) {
-            throw new GradleException('Forge 65 Mavenizer target must be an explicit zero-rule qualification')
+            throw new GradleException('Forge 66 Mavenizer target must be an explicit zero-rule qualification')
         }
 
         ZipFile fixtureJar = new ZipFile(mavenizerCompatibilityJar.asFile)
@@ -399,7 +399,7 @@ tasks.register('verifyMavenizerCompatibilityFixture') {
         String licenseText = mavenizerLicense.asFile.getText('UTF-8')
         if (!readme.contains('6968241ce7a0a902cdc1c534b976e8373a423091')
                 || !readme.contains('Temurin `25.0.3+9`')
-                || !readme.contains('26.2-65.1.0')) {
+                || !readme.contains('26.3-66.0.0')) {
             throw new GradleException('Mavenizer provenance, target, or Java 25 build instructions are incomplete')
         }
         if (!patchText.contains('SourceCompatibilityPatcher.java')
@@ -529,7 +529,7 @@ tasks.named('test', Test).configure {
 
 // A Forge process is not green merely because it returns exit code zero. The
 // loader can log a worldgen/linkage failure and still shut down normally.
-def acceptedForge65LogNoise = [
+def acceptedForge66LogNoise = [
         ~/FML appears to be missing any signature data/,
         ~/Found multiple arguments for option fml\.mcVersion/,
         ~/Found multiple arguments for option fml\.forgeVersion/,
@@ -549,7 +549,7 @@ def packagedOfflineAuthenticationNoise = [
         ~/\/ERROR\] \[com\.mojang\.realmsclient\.RealmsAvailability\/\]: Couldn't connect to realms$/,
         ~/^com\.mojang\.realmsclient\.exception\.RealmsServiceException: Realms authentication error with message 'java\.lang\.RuntimeException: Failed to parse into SignedJWT: validation-token'$/
 ]
-// Forge 65/Minecraft 26.2 asks OSHI for Windows performance counters while
+// Forge 66/Minecraft 26.3 asks OSHI for Windows performance counters while
 // preloading its system report. Two plain Forge servers with empty mods
 // directories reproduced these exact signatures on this host and continued
 // to Done. Keep the exception scoped to Windows runtime processes that opt in;
@@ -589,7 +589,7 @@ def assertRuntimeLogsClean = { File runDirectory, String context, Set priorCrash
         log.eachLine('UTF-8') { String line ->
             lineNumber++
             boolean unexpectedSeverity = line ==~ /.*\/(?:ERROR|FATAL)\].*/
-            boolean knownNoise = acceptedForge65LogNoise.any { line =~ it }
+            boolean knownNoise = acceptedForge66LogNoise.any { line =~ it }
                     || contextNoise.any { line =~ it }
             boolean exceptionRoot = line ==~ /^(?:Caused by: )?[A-Za-z_$][A-Za-z0-9_.$]*(?:Exception|Error)(?::.*)?$/
             boolean fatalText = line.contains('Encountered an unexpected exception') ||
@@ -629,7 +629,7 @@ task runtimeLogScannerTest {
                 'java.lang.UnsupportedOperationException: sun.misc.Unsafe unavailable\n'
                 + 'java.lang.UnsupportedOperationException: Native access (restricted methods) is not enabled for the io.netty.common module.\n',
                 'UTF-8')
-        assertRuntimeLogsClean(probe, 'scanner-forge65-netty-noise-probe', [] as Set)
+        assertRuntimeLogsClean(probe, 'scanner-forge66-netty-noise-probe', [] as Set)
         new File(logs, 'debug.log').delete()
         new File(logs, 'latest.log').setText(
                 '[Download-2/ERROR] [net.minecraft.client.Minecraft/]: Failed to fetch user properties\n'
@@ -779,9 +779,6 @@ task compileSurfaceIntegrationTestMod(type: JavaCompile, dependsOn: classes) {
 task surfaceIntegrationTestModJar(type: Jar, dependsOn: compileSurfaceIntegrationTestMod) {
     archiveFileName = 'surfaceprobe.jar'
     destinationDirectory = file("${buildDir}/surface-integration-fixture")
-    manifest {
-        attributes 'MixinConfigs': 'surfaceprobe.mixins.json'
-    }
     from surfaceIntegrationClasses
     from 'src/biomeIntegrationTest/resources'
 }
@@ -823,12 +820,14 @@ tasks.matching { it.name == 'runSurfaceIntegrationReload' }.all {
 surfaceIntegrationFreshProcess.configure {
     doLast {
         File marker = new File(surfaceIntegrationRunDirectory,
-                'gametestserver/gametestworld/surfaceprobe-integration.properties')
+                'surface-integration-world/surfaceprobe-integration.properties')
         if (!marker.isFile()) {
             throw new GradleException("Fresh surface integration completion marker is missing: ${marker}")
         }
         assertRuntimeLogsClean(surfaceIntegrationRunDirectory,
-                'surface integration fresh phase', [] as Set)
+                'surface integration fresh phase', [] as Set,
+                System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')
+                        ? windowsOshiSystemReportNoise : [])
     }
 }
 def surfaceIntegrationReloadProcess = tasks.register('surfaceIntegrationReloadProcess') {
@@ -839,15 +838,17 @@ def surfaceIntegrationReloadProcess = tasks.register('surfaceIntegrationReloadPr
 surfaceIntegrationReloadProcess.configure {
     doLast {
         assertRuntimeLogsClean(surfaceIntegrationRunDirectory,
-                'surface integration reload phase', [] as Set)
+                'surface integration reload phase', [] as Set,
+                System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')
+                        ? windowsOshiSystemReportNoise : [])
     }
 }
 
 task surfaceIntegrationTest(dependsOn: surfaceIntegrationReloadProcess) {
     group = 'verification'
-    doLast {
+	doLast {
         File marker = new File(surfaceIntegrationRunDirectory,
-                'gametestserver/gametestworld/surfaceprobe-integration.properties')
+				'surface-integration-world/surfaceprobe-integration.properties')
         Properties result = new Properties()
         marker.withInputStream { result.load(it) }
         if (result.getProperty('reload_verified') != 'true') {
@@ -860,7 +861,7 @@ task surfaceIntegrationTest(dependsOn: surfaceIntegrationReloadProcess) {
 
 check.dependsOn surfaceIntegrationTest
 
-task syncForge65EclipseLaunches(dependsOn: compileSurfaceIntegrationTestMod) {
+task syncForge66EclipseLaunches(dependsOn: compileSurfaceIntegrationTestMod) {
     group = 'ide'
     doLast {
         String mainOutput = new File(projectDir, 'bin/main').absolutePath
@@ -926,7 +927,7 @@ task syncForge65EclipseLaunches(dependsOn: compileSurfaceIntegrationTestMod) {
     }
 }
 
-task verifyForge65EclipseLaunchIsolation {
+task verifyForge66EclipseLaunchIsolation {
     group = 'verification'
     doLast {
         ['runClient.launch', 'runServer.launch', 'runGameTestServer.launch',
@@ -941,10 +942,10 @@ task verifyForge65EclipseLaunchIsolation {
     }
 }
 
-syncForge65EclipseLaunches.finalizedBy verifyForge65EclipseLaunchIsolation
+syncForge66EclipseLaunches.finalizedBy verifyForge66EclipseLaunchIsolation
 
 tasks.matching { it.name == 'genEclipseRuns' }.all {
-    finalizedBy syncForge65EclipseLaunches
+    finalizedBy syncForge66EclipseLaunches
 }
 
 def packagedSurfaceProbeJar = tasks.named('surfaceIntegrationTestModJar', Jar)
@@ -1012,13 +1013,13 @@ def preparedReleaseDir = providers.gradleProperty('preparedReleaseDir')
 tasks.register('verifyReleaseConfiguration') {
     group = 'verification'
     doLast {
-        if (project.mod_version != '4.0.16.2602001'
+        if (project.mod_version != '4.0.16.2603001'
                 || project.mod_group != expectedMavenGroup
-                || project.minecraft_version != '26.2'
-                || project.forge_version != '65.1.0'
+                || project.minecraft_version != '26.3'
+                || project.forge_version != '66.0.0'
                 || project.mapping_channel != 'official'
-                || project.mapping_version != '26.2') {
-            throw new GradleException('Unexpected OreSpawn 26.2 release identity')
+                || project.mapping_version != '26.3') {
+            throw new GradleException('Unexpected OreSpawn 26.3 release identity')
         }
         if (project.loader_name != 'forge' || project.loader_code != '1'
                 || project.java_version != '25' || project.gradle_java_version != '25'
@@ -1026,9 +1027,9 @@ tasks.register('verifyReleaseConfiguration') {
             throw new GradleException('Unexpected dispatcher or Java target metadata')
         }
         List<String> expectedPublicArtifacts = [
-                'OreSpawn-4.0.16.2602001.jar',
-                'OreSpawn-4.0.16.2602001-sources.jar',
-                'OreSpawn-4.0.16.2602001-javadoc.jar'
+                'OreSpawn-4.0.16.2603001.jar',
+                'OreSpawn-4.0.16.2603001-sources.jar',
+                'OreSpawn-4.0.16.2603001-javadoc.jar'
         ]
         if (base.archivesName.get() != expectedMavenArtifact
                 || expectedReleaseFiles.get().collect { it.toString() } != expectedPublicArtifacts) {
@@ -1045,7 +1046,7 @@ tasks.register('verifyReleaseConfiguration') {
                 'src/main/java/zone/moddev/mc/orespawn/worldgen/LegacyMineralogyProfileMigration.java',
                 'README.md', 'CHANGELOG.txt'
         ].each { path ->
-            if (!file(path).getText('UTF-8').contains('4.0.16.2602001')) {
+            if (!file(path).getText('UTF-8').contains('4.0.16.2603001')) {
                 throw new GradleException("Release identity missing from ${path}")
             }
         }
@@ -1186,8 +1187,16 @@ tasks.register('verifyReleaseArtifacts') {
                     .getText(StandardCharsets.UTF_8.name())
             if (!metadata.contains('modId="orespawn"')
                     || !metadata.contains("version=\"${project.version}\"")
-                    || !metadata.contains('versionRange="[26.2,26.3,)"')) {
+                    || !metadata.contains('versionRange="[26.3,26.4,)"')) {
                 throw new GradleException('Packaged Forge metadata is incorrect')
+            }
+            def packMetadata = new groovy.json.JsonSlurper().parseText(
+                    zip.getInputStream(zip.getEntry('pack.mcmeta'))
+                            .getText(StandardCharsets.UTF_8.name()))
+            if (packMetadata.pack.max_format != 121
+                    || packMetadata.pack.min_format != [97, 1]) {
+                throw new GradleException(
+                        "Unexpected Minecraft 26.3 pack formats: ${packMetadata.pack}")
             }
             String transformer = zip.getInputStream(
                     zip.getEntry('META-INF/accesstransformer.cfg'))
@@ -1198,8 +1207,7 @@ tasks.register('verifyReleaseArtifacts') {
             List<String> expectedRules = [
                     'public-f net.minecraft.world.level.chunk.ChunkGenerator biomeSource',
                     'public-f net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator globalFluidPicker',
-                    'public-f net.minecraft.world.level.biome.Biome generationSettings',
-                    'public-f net.minecraft.world.level.levelgen.feature.configurations.SpringConfiguration validBlocks'
+                    'public-f net.minecraft.world.level.biome.Biome generationSettings'
             ]
             if (actualRules != expectedRules) {
                 throw new GradleException("Unexpected packaged official-named access transformer: ${actualRules}")
@@ -1213,7 +1221,7 @@ tasks.register('verifyReleaseArtifacts') {
                     || manifest.getValue('FMLAT') != 'accesstransformer.cfg'
                     || manifest.getValue('Maven-Artifact') != expectedMavenCoordinate
                     || manifest.getValue('Built-On-Java') != '25'
-                    || manifest.getValue('Built-On') != '26.2-65.1.0'
+                    || manifest.getValue('Built-On') != '26.3-66.0.0'
                     || manifest.getValue('Implementation-Timestamp') != null) {
                 throw new GradleException('Release manifest is incorrect or volatile')
             }
@@ -1397,7 +1405,7 @@ eclipse {
         downloadJavadoc = true
         defaultOutputDir = file('bin/default')
         file.whenMerged { classpath ->
-            // ForgeGradle 7 models Forge 65's merged Gradle output as
+            // ForgeGradle 7 models Forge 66's merged Gradle output as
             // build/sourceSets with main/test children. Eclipse rejects a
             // source output nested below the default output, so keep Gradle's
             // merged directories as inputs while compiling Eclipse sources to
@@ -1440,12 +1448,24 @@ tasks.register('configureEclipseBuildship') {
     doLast {
         File preferencesFile = file('.settings/org.eclipse.buildship.core.prefs')
         Properties preferences = new Properties()
+        if (preferencesFile.isFile()) {
+            preferencesFile.withInputStream { preferences.load(it) }
+        }
+        String requestedGradleHome = System.getenv('GRADLE_USER_HOME')
+        String existingGradleHome = preferences.getProperty(
+                'connection.gradle.user.home', '').trim()
+        File eclipseGradleHome = requestedGradleHome != null
+                && !requestedGradleHome.trim().isEmpty()
+                ? file(requestedGradleHome)
+                : (!existingGradleHome.isEmpty()
+                        ? file(existingGradleHome) : gradle.gradleUserHomeDir)
         [
                 'eclipse.preferences.version'    : '1',
                 'connection.gradle.distribution': 'GRADLE_DISTRIBUTION(WRAPPER)',
-                'connection.gradle.user.home'   : gradle.gradleUserHomeDir.canonicalPath,
+                'connection.gradle.user.home'   : eclipseGradleHome.canonicalPath,
                 'connection.project.dir'        : '',
-                'gradle.user.home'               : gradle.gradleUserHomeDir.canonicalPath,
+                'gradle.user.home'               : eclipseGradleHome.canonicalPath,
+                'java.home'                      : System.getProperty('java.home'),
                 'override.workspace.settings'   : 'true'
         ].each { key, value -> preferences.setProperty(key, value) }
         preferencesFile.parentFile.mkdirs()
@@ -1457,7 +1477,7 @@ tasks.register('configureEclipseBuildship') {
 tasks.register('isolateEclipseProductionRuns') {
     group = 'ide'
     dependsOn tasks.named('genEclipseRuns')
-    dependsOn syncForge65EclipseLaunches
+    dependsOn syncForge66EclipseLaunches
     dependsOn tasks.named('configureEclipseBuildship')
     dependsOn prepareEclipseResources
     doLast {
@@ -1490,12 +1510,28 @@ tasks.register('verifyEclipseProductionClasspath') {
         if (!prefs.isFile()) throw new GradleException('Missing Buildship preferences')
         Properties buildshipPreferences = new Properties()
         prefs.withInputStream { buildshipPreferences.load(it) }
-        String expectedGradleHome = gradle.gradleUserHomeDir.canonicalPath
+        String expectedGradleHome = buildshipPreferences.getProperty(
+                'connection.gradle.user.home', '').trim()
+        if (expectedGradleHome.isEmpty()) {
+            throw new GradleException('Eclipse Buildship Gradle home is missing')
+        }
         if (buildshipPreferences.getProperty('connection.gradle.user.home') != expectedGradleHome
                 || buildshipPreferences.getProperty('gradle.user.home') != expectedGradleHome
                 || buildshipPreferences.getProperty('override.workspace.settings') != 'true') {
             throw new GradleException(
                     "Eclipse Buildship must use the validated Gradle home ${expectedGradleHome}")
+        }
+        String eclipseJavaHome = buildshipPreferences.getProperty('java.home', '').trim()
+        File eclipseJavaReleaseFile = new File(eclipseJavaHome, 'release')
+        if (eclipseJavaHome.isEmpty() || !eclipseJavaReleaseFile.isFile()) {
+            throw new GradleException(
+                    "Eclipse Buildship Java home is missing or invalid: ${eclipseJavaHome}")
+        }
+        String eclipseJavaRelease = eclipseJavaReleaseFile.getText('UTF-8')
+        if (!eclipseJavaRelease.contains('JAVA_VERSION="25.0.3"')
+                || !eclipseJavaRelease.contains('IMPLEMENTOR="Eclipse Adoptium"')) {
+            throw new GradleException(
+                    "Eclipse Buildship must use exact Temurin 25.0.3+9: ${eclipseJavaHome}")
         }
         Set<String> legacyLwjglArtifacts = configurations.compileClasspath.resolvedConfiguration
                 .resolvedArtifacts
@@ -1504,7 +1540,7 @@ tasks.register('verifyEclipseProductionClasspath') {
                 .toSet()
         if (!legacyLwjglArtifacts.isEmpty()) {
             throw new GradleException(
-                    "Forge 26.2 Eclipse classpath contains legacy LWJGL 2 artifacts: ${legacyLwjglArtifacts}")
+                    "Forge 26.3 Eclipse classpath contains legacy LWJGL 2 artifacts: ${legacyLwjglArtifacts}")
         }
         File eclipseClasspath = file('.classpath')
         if (!eclipseClasspath.isFile()) {
@@ -1586,7 +1622,7 @@ tasks.register('verifyEclipseProductionClasspath') {
                 throw new GradleException("${name} is not a production-only OreSpawn launch")
             }
             if (!contents.contains("MOD_CLASSES\" value=\"${expectedModClasses}\"")) {
-                throw new GradleException("${name} does not use Forge 65's merged Buildship output")
+                throw new GradleException("${name} does not use Forge 66's merged Buildship output")
             }
         }
     }
@@ -1622,7 +1658,7 @@ def packagedClientJavaExecutable = providers.gradleProperty('packagedClientJavaE
 
 def requireRuntimeDirectory = { Provider<String> configuredPath, String propertyName ->
     if (!configuredPath.isPresent()) {
-        throw new GradleException("Pass -P${propertyName}=<official Forge 65 runtime directory>")
+        throw new GradleException("Pass -P${propertyName}=<official Forge 66 runtime directory>")
     }
     File runtime = file(configuredPath.get())
     if (!runtime.isDirectory()) {
@@ -1688,8 +1724,8 @@ def packagedSurfaceFresh = tasks.register('packagedSurfaceFresh', Exec) {
     dependsOn tasks.named('preparePackagedSurfaceIntegration')
     doFirst {
         File forgeDirectory = new File(packagedSurfaceRunDirectory,
-                'libraries/net/minecraftforge/forge/26.2-65.1.0')
-        File launcher = new File(forgeDirectory, 'forge-26.2-65.1.0-server.jar')
+                'libraries/net/minecraftforge/forge/26.3-66.0.0')
+        File launcher = new File(forgeDirectory, 'forge-26.3-66.0.0-server.jar')
         File sourceArguments = new File(forgeDirectory,
                 System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')
                         ? 'win_args.txt' : 'unix_args.txt')
@@ -1699,7 +1735,7 @@ def packagedSurfaceFresh = tasks.register('packagedSurfaceFresh', Exec) {
         workingDir packagedSurfaceRunDirectory
         commandLine java25Launcher.get().executablePath.asFile.absolutePath,
                 '-Xms512m', '-Xmx2g', '-Dsurfaceprobe.integrationPhase=fresh',
-                "@libraries/net/minecraftforge/forge/26.2-65.1.0/${sourceArguments.name}",
+                "@libraries/net/minecraftforge/forge/26.3-66.0.0/${sourceArguments.name}",
                 'nogui'
     }
     doLast {
@@ -1715,14 +1751,14 @@ def packagedSurfaceReload = tasks.register('packagedSurfaceReload', Exec) {
     dependsOn packagedSurfaceFresh
     doFirst {
         File forgeDirectory = new File(packagedSurfaceRunDirectory,
-                'libraries/net/minecraftforge/forge/26.2-65.1.0')
+                'libraries/net/minecraftforge/forge/26.3-66.0.0')
         File sourceArguments = new File(forgeDirectory,
                 System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')
                         ? 'win_args.txt' : 'unix_args.txt')
         workingDir packagedSurfaceRunDirectory
         commandLine java25Launcher.get().executablePath.asFile.absolutePath,
                 '-Xms512m', '-Xmx2g', '-Dsurfaceprobe.integrationPhase=reload',
-                "@libraries/net/minecraftforge/forge/26.2-65.1.0/${sourceArguments.name}",
+                "@libraries/net/minecraftforge/forge/26.3-66.0.0/${sourceArguments.name}",
                 'nogui'
     }
     doLast {
@@ -1779,7 +1815,7 @@ tasks.register('preparePackagedClientIntegration') {
 def packagedClientProcess = tasks.register('packagedClientProcess', Exec) {
     group = 'verification'
     dependsOn tasks.named('preparePackagedClientIntegration')
-    // Minecraft 26.2 returns -1 from its programmatic stop path after the
+    // Minecraft 26.3 returns -1 from its programmatic stop path after the
     // client probe completes.  The following task requires the completion
     // marker, a clean crash-report directory and clean runtime logs, so an
     // early failure cannot be mistaken for success.
@@ -1787,16 +1823,16 @@ def packagedClientProcess = tasks.register('packagedClientProcess', Exec) {
     doFirst {
         File runtime = requireRuntimeDirectory(packagedForgeClientRuntime,
                 'packagedForgeClientRuntime')
-        String forgeVersionId = ['26.2-forge-65.1.0', 'forge-65.1.0'].find { candidate ->
+        String forgeVersionId = ['26.3-forge-66.0.0', 'forge-66.0.0'].find { candidate ->
             new File(runtime, "versions/${candidate}/${candidate}.json").isFile()
         }
         if (forgeVersionId == null) {
-            throw new GradleException('Official client runtime has no Forge 65.1.0 profile')
+            throw new GradleException('Official client runtime has no Forge 66.0.0 profile')
         }
         File forgeJsonFile = new File(runtime,
                 "versions/${forgeVersionId}/${forgeVersionId}.json")
-        File baseJsonFile = new File(runtime, 'versions/26.2/26.2.json')
-        File baseJar = new File(runtime, 'versions/26.2/26.2.jar')
+        File baseJsonFile = new File(runtime, 'versions/26.3/26.3.json')
+        File baseJar = new File(runtime, 'versions/26.3/26.3.jar')
         File nativesDirectory = new File(runtime, "natives/${forgeVersionId}")
         [forgeJsonFile, baseJsonFile, baseJar, new File(runtime, 'libraries'),
                 new File(runtime, 'assets'), nativesDirectory].each {
@@ -1911,7 +1947,7 @@ tasks.register('packagedClientIntegrationTest') {
 
 tasks.register('packagedRuntimeIntegrationTest') {
     group = 'verification'
-    description = 'Runs the exact official-named jars in official Forge 65 server and client runtimes.'
+    description = 'Runs the exact official-named jars in official Forge 66 server and client runtimes.'
     dependsOn tasks.named('packagedSurfaceIntegrationTest')
     dependsOn tasks.named('packagedClientIntegrationTest')
 }

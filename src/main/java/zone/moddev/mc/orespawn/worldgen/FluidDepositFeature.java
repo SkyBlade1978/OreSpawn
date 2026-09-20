@@ -14,6 +14,7 @@ import java.util.Set;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.mojang.serialization.MapCodec;
 import zone.moddev.mc.orespawn.OreSpawn;
 
 import net.minecraft.core.BlockPos;
@@ -32,22 +33,21 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
-import net.minecraft.world.level.chunk.LevelChunkSection;
-import net.minecraft.world.level.chunk.ProtoChunk;
+import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.feature.Feature;
-import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
-import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
+import net.minecraft.util.RandomSource;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /** One allocation-light feature for all provider-owned underground fluid deposits. */
-public final class FluidDepositFeature extends Feature<NoneFeatureConfiguration> {
+public final class FluidDepositFeature implements Feature {
 	private static final Logger LOGGER = LogManager.getLogger();
 	public static final FluidDepositFeature FEATURE = new FluidDepositFeature();
+	public static final MapCodec<FluidDepositFeature> CODEC = MapCodec.unit(FEATURE);
 	private static final int CHUNK_WIDTH = 16;
 	private static final int UNKNOWN_HEIGHT = Integer.MIN_VALUE;
 	private static final BakedDeposit[] NO_DEPOSITS = new BakedDeposit[0];
@@ -63,7 +63,6 @@ public final class FluidDepositFeature extends Feature<NoneFeatureConfiguration>
 			ThreadLocal.withInitial(GenerationScratch::new);
 
 	private FluidDepositFeature() {
-		super(NoneFeatureConfiguration.CODEC);
 	}
 
 	public static void registerConfiguredFeature() {
@@ -92,13 +91,18 @@ public final class FluidDepositFeature extends Feature<NoneFeatureConfiguration>
 	}
 
 	@Override
-	public boolean place(FeaturePlaceContext<NoneFeatureConfiguration> context) {
-		WorldGenLevel world = context.level();
+	public MapCodec<FluidDepositFeature> codec() {
+		return CODEC;
+	}
+
+	@Override
+	public boolean place(WorldGenLevel world, ChunkGenerator chunkGenerator,
+			RandomSource randomSource, BlockPos origin) {
 		ResourceKey<Level> dimension = world.getLevel().dimension();
 		BakedDeposit[] deposits = depositsByDimension.getOrDefault(dimension, NO_DEPOSITS);
 		if (deposits.length == 0) return false;
 
-		ChunkAccess chunk = world.getChunk(context.origin());
+		ChunkAccess chunk = world.getChunk(origin);
 		GenerationScratch scratch = GENERATION_SCRATCH.get();
 		ChunkPos chunkPos = chunk.getPos();
 		int centerX = chunkPos.getMinBlockX() + 8;
@@ -113,7 +117,7 @@ public final class FluidDepositFeature extends Feature<NoneFeatureConfiguration>
 		boolean geomeClassified = false;
 
 		boolean changed = false;
-		Random random = scratch.random.wrap(context.random());
+		Random random = scratch.random.wrap(randomSource);
 		for (BakedDeposit deposit : deposits) {
 			if (!deposit.acceptsBiome(biome)) continue;
 			if (!geomeClassified && deposit.usesGeomeWeights && config != null) {
@@ -224,18 +228,10 @@ public final class FluidDepositFeature extends Feature<NoneFeatureConfiguration>
 	}
 
 	private static void setDepositState(ChunkAccess chunk, BlockPos pos, BlockState output) {
-		if (chunk instanceof ProtoChunk) {
-			// Deposits are generated below a validated solid cover during FEATURES,
-			// before lighting. Their writes cannot alter the already higher worldgen
-			// heightmaps, and the chunk-generation thread exclusively owns this section.
-			LevelChunkSection section = chunk.getSection(chunk.getSectionIndex(pos.getY()));
-			section.setBlockState(pos.getX() & 15, pos.getY() & 15, pos.getZ() & 15,
-					output, false);
-		} else {
-			// Preserve all normal light/height updates if another caller invokes the
-			// feature against an already-live chunk.
-			chunk.setBlockState(pos, output, 0);
-		}
+		// Minecraft 26.3's chunk promotion derives its fluid bookkeeping from the
+		// normal chunk write. A raw section write can therefore lose a generated
+		// fluid state even though the palette was changed successfully.
+		chunk.setBlockState(pos, output, 0);
 	}
 
 	private static boolean hasSolidEnvelope(WorldGenLevel world, ChunkAccess chunk,
