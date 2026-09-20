@@ -1,5 +1,5 @@
 modLoader="javafml"
-loaderVersion="[65,)"
+loaderVersion="[66,)"
 license="LGPL-2.1"
 
 [[mods]]
@@ -18,6 +18,6 @@ side="BOTH"
 [[dependencies.surfaceprobe]]
 modId="minecraft"
 mandatory=true
-versionRange="[26.2,26.3)"
+versionRange="[26.3,26.4)"
 ordering="NONE"
 side="BOTH"

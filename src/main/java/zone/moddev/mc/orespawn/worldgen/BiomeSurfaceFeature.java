@@ -1,5 +1,7 @@
 package zone.moddev.mc.orespawn.worldgen;
 
+import com.mojang.serialization.MapCodec;
+
 import zone.moddev.mc.orespawn.worldgen.BakedBiomeWorldgen.Surface;
 
 import net.minecraft.core.BlockPos;
@@ -7,19 +9,19 @@ import net.minecraft.core.Holder;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.feature.Feature;
-import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
-import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
+import net.minecraft.util.RandomSource;
 
 /** Applies provider surfaces after base surfaces and lakes, before late features. */
-public final class BiomeSurfaceFeature extends Feature<NoneFeatureConfiguration> {
+public final class BiomeSurfaceFeature implements Feature {
 	public static final BiomeSurfaceFeature FEATURE = new BiomeSurfaceFeature();
+	public static final MapCodec<BiomeSurfaceFeature> CODEC = MapCodec.unit(FEATURE);
 	private static Holder<PlacedFeature> placedFeature;
 
 	private BiomeSurfaceFeature() {
-		super(NoneFeatureConfiguration.CODEC);
 	}
 
 	public static void registerConfiguredFeature() {
@@ -31,11 +33,16 @@ public final class BiomeSurfaceFeature extends Feature<NoneFeatureConfiguration>
 	}
 
 	@Override
-	public boolean place(FeaturePlaceContext<NoneFeatureConfiguration> context) {
-		WorldGenLevel world = context.level();
+	public MapCodec<BiomeSurfaceFeature> codec() {
+		return CODEC;
+	}
+
+	@Override
+	public boolean place(WorldGenLevel world, ChunkGenerator chunkGenerator,
+			RandomSource random, BlockPos origin) {
 		BakedBiomeWorldgen config = BiomeWorldgenManager.get(world.getLevel().dimension());
 		if (config == null || !config.hasSurfaces()) return false;
-		ChunkAccess chunk = world.getChunk(context.origin());
+		ChunkAccess chunk = world.getChunk(origin);
 		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 		boolean changed = false;
 		int minX = chunk.getPos().getMinBlockX();

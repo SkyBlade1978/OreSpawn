@@ -1,5 +1,7 @@
 package zone.moddev.mc.orespawn.init;
 
+import com.mojang.serialization.MapCodec;
+
 import zone.moddev.mc.orespawn.OreSpawn;
 import zone.moddev.mc.orespawn.worldgen.OreSpawnOreGeneration;
 import zone.moddev.mc.orespawn.worldgen.FlatBedrockFeature;
@@ -7,23 +9,25 @@ import zone.moddev.mc.orespawn.worldgen.FluidDepositFeature;
 import zone.moddev.mc.orespawn.worldgen.StoneReplacer;
 import zone.moddev.mc.orespawn.worldgen.BiomeSurfaceFeature;
 import zone.moddev.mc.orespawn.worldgen.VanillaOreFeatureGate;
+import zone.moddev.mc.orespawn.worldgen.VanillaSpringCompatibility;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraftforge.eventbus.api.bus.BusGroup;
 import net.minecraftforge.registries.DeferredRegister;
-import net.minecraftforge.registries.ForgeRegistries;
 
 public final class Features {
-	private static final DeferredRegister<Feature<?>> FEATURES =
-			DeferredRegister.create(ForgeRegistries.FEATURES, OreSpawn.MODID);
+	private static final DeferredRegister<MapCodec<? extends Feature>> FEATURES =
+			DeferredRegister.create(BuiltInRegistries.FEATURE_TYPE.key(), OreSpawn.MODID);
 
 	static {
-		FEATURES.register("stone_replacer", () -> StoneReplacer.FEATURE);
-		FEATURES.register("matching_stone_gate", StoneReplacer::matchingStoneGateFeature);
-		FEATURES.register("managed_ores", () -> OreSpawnOreGeneration.FEATURE);
-		FEATURES.register("fluid_deposits", () -> FluidDepositFeature.FEATURE);
-		FEATURES.register("flat_bedrock", () -> FlatBedrockFeature.FEATURE);
-		FEATURES.register("biome_surfaces", () -> BiomeSurfaceFeature.FEATURE);
+		FEATURES.register("stone_replacer", () -> StoneReplacer.CODEC);
+		FEATURES.register("matching_stone_gate", StoneReplacer::matchingStoneGateCodec);
+		FEATURES.register("managed_ores", () -> OreSpawnOreGeneration.CODEC);
+		FEATURES.register("fluid_deposits", () -> FluidDepositFeature.CODEC);
+		FEATURES.register("flat_bedrock", () -> FlatBedrockFeature.CODEC);
+		FEATURES.register("biome_surfaces", () -> BiomeSurfaceFeature.CODEC);
+		FEATURES.register("spring_host", VanillaSpringCompatibility::codec);
 		VanillaOreFeatureGate.registerFeatures(FEATURES);
 	}
 

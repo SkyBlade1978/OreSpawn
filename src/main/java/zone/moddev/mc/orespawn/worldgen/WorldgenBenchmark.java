@@ -1,7 +1,13 @@
 package zone.moddev.mc.orespawn.worldgen;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
@@ -27,6 +33,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
 
@@ -39,6 +46,8 @@ public final class WorldgenBenchmark {
 	private static final String PROPERTY = "orespawn.worldgenBenchmarkMode";
 	private static final String MODE = System.getProperty(PROPERTY, "").trim().toLowerCase(Locale.ROOT);
 	private static final boolean ENABLED = "vanilla".equals(MODE) || "cyano".equals(MODE) || "sky".equals(MODE);
+	private static final boolean SPRING_AUDIT_ENABLED =
+			Boolean.getBoolean("orespawn.worldgenBenchmarkSpringAudit");
 	private static final AtomicLong FLUID_DEPOSITS_PLACED = new AtomicLong();
 
 	private WorldgenBenchmark() {
@@ -55,6 +64,10 @@ public final class WorldgenBenchmark {
 
 	public static boolean isVanillaBaseline() {
 		return ENABLED && "vanilla".equals(MODE);
+	}
+
+	static boolean isSpringAuditEnabled() {
+		return SPRING_AUDIT_ENABLED;
 	}
 
 	static void recordFluidDeposit() {
@@ -111,6 +124,9 @@ public final class WorldgenBenchmark {
 		double[] milliseconds = new double[repetitions];
 		for (int repetition = 0; repetition < repetitions; repetition++) {
 			int centerX = baseCenterX + (repetition * centerStep);
+			if (SPRING_AUDIT_ENABLED) {
+				VanillaSpringCompatibility.beginSpringAudit();
+			}
 			long fluidDepositsBefore = FLUID_DEPOSITS_PLACED.get();
 			long started = System.nanoTime();
 			generateSquare(level, centerX, baseCenterZ, radius);
@@ -126,6 +142,9 @@ public final class WorldgenBenchmark {
 			}
 			if (Boolean.getBoolean("orespawn.worldgenBenchmarkOreAudit")) {
 				auditOres(level, centerX, baseCenterZ, radius, repetition + 1);
+			}
+			if (SPRING_AUDIT_ENABLED) {
+				auditSourceFluids(level, centerX, baseCenterZ, radius, repetition + 1);
 			}
 			auditBiomes(level, centerX, baseCenterZ, radius, repetition + 1);
 		}
@@ -148,6 +167,133 @@ public final class WorldgenBenchmark {
 				LOGGER.info("ORESPAWN_BENCHMARK leaving shutdown to the GameTest harness");
 			}
 		}
+	}
+
+	private static void auditSourceFluids(ServerLevel level, int centerX, int centerZ,
+			int radius, int repetition) {
+		MessageDigest digest;
+		try {
+			digest = MessageDigest.getInstance("SHA-256");
+		} catch (NoSuchAlgorithmException impossible) {
+			throw new IllegalStateException("SHA-256 is unavailable", impossible);
+		}
+		List<SpringCoordinate> coordinates = isVanillaBaseline()
+				? scanVanillaSpringShapes(level, centerX, centerZ, radius)
+				: recordedVanillaSpringPlacements(centerX, centerZ, radius);
+		coordinates.sort(Comparator.comparingInt(SpringCoordinate::x)
+				.thenComparingInt(SpringCoordinate::z)
+				.thenComparingInt(SpringCoordinate::y)
+				.thenComparing(SpringCoordinate::fluid));
+		long water = 0L;
+		long lava = 0L;
+		for (SpringCoordinate coordinate : coordinates) {
+			if ("water".equals(coordinate.fluid())) water++;
+			else if ("lava".equals(coordinate.fluid())) lava++;
+			updateDigestInt(digest, coordinate.x());
+			updateDigestInt(digest, coordinate.y());
+			updateDigestInt(digest, coordinate.z());
+			digest.update(coordinate.fluid().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+			digest.update((byte) 0);
+		}
+		LOGGER.info("ORESPAWN_BENCHMARK_SPRING mode={} repetition={} water_candidates={} "
+				+ "lava_candidates={} coordinate_sha256={}",
+				MODE, repetition, water, lava,
+				HexFormat.of().formatHex(digest.digest()).toUpperCase(Locale.ROOT));
+		LOGGER.info("ORESPAWN_BENCHMARK_SPRING_COORDINATES mode={} repetition={} coordinates={}",
+				MODE, repetition, coordinates);
+	}
+
+	private static List<SpringCoordinate> recordedVanillaSpringPlacements(
+			int centerX, int centerZ, int radius) {
+		int minimumX = (centerX - radius) << 4;
+		int maximumX = ((centerX + radius + 1) << 4) - 1;
+		int minimumZ = (centerZ - radius) << 4;
+		int maximumZ = ((centerZ + radius + 1) << 4) - 1;
+		List<SpringCoordinate> result = new ArrayList<>();
+		for (VanillaSpringCompatibility.SpringAuditPlacement placement
+				: VanillaSpringCompatibility.springAuditPlacements()) {
+			if (placement.x() >= minimumX && placement.x() <= maximumX
+					&& placement.z() >= minimumZ && placement.z() <= maximumZ) {
+				result.add(new SpringCoordinate(placement.x(), placement.y(),
+						placement.z(), placement.fluid()));
+			}
+		}
+		return result;
+	}
+
+	private static List<SpringCoordinate> scanVanillaSpringShapes(ServerLevel level,
+			int centerX, int centerZ, int radius) {
+		List<SpringCoordinate> result = new ArrayList<>();
+		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+		for (int chunkZ = centerZ - radius; chunkZ <= centerZ + radius; chunkZ++) {
+			for (int chunkX = centerX - radius; chunkX <= centerX + radius; chunkX++) {
+				LevelChunk chunk = level.getChunk(chunkX, chunkZ);
+				int minX = chunk.getPos().getMinBlockX();
+				int minZ = chunk.getPos().getMinBlockZ();
+				int maximumYExclusive = chunk.getMinY() + chunk.getHeight();
+				for (int localX = 0; localX < 16; localX++) {
+					for (int localZ = 0; localZ < 16; localZ++) {
+						for (int y = chunk.getMinY(); y < maximumYExclusive; y++) {
+							cursor.set(minX + localX, y, minZ + localZ);
+							var fluid = chunk.getBlockState(cursor).getFluidState();
+							if (!fluid.isSource()) continue;
+							boolean water = fluid.getType() == Fluids.WATER;
+							boolean lava = fluid.getType() == Fluids.LAVA;
+							if ((water || lava) && hasVanillaSpringShape(level, cursor, water)) {
+								result.add(new SpringCoordinate(cursor.getX(), y, cursor.getZ(),
+										water ? "water" : "lava"));
+							}
+						}
+					}
+				}
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * Recognizes the post-placement shape used by the vanilla overworld spring
+	 * features. The audit runs synchronously while the benchmark chunks are
+	 * generated, before their scheduled fluid ticks can fill the one open side.
+	 * This deliberately excludes oceans and aquifers from the coordinate digest.
+	 */
+	private static boolean hasVanillaSpringShape(ServerLevel level, BlockPos origin,
+			boolean water) {
+		if (!isVanillaSpringHost(level.getBlockState(origin.above()), water)
+				|| !isVanillaSpringHost(level.getBlockState(origin.below()), water)) {
+			return false;
+		}
+		int rocks = 0;
+		int holes = 0;
+		for (var direction : new net.minecraft.core.Direction[] {
+				net.minecraft.core.Direction.WEST, net.minecraft.core.Direction.EAST,
+				net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH,
+				net.minecraft.core.Direction.DOWN }) {
+			BlockState neighbor = level.getBlockState(origin.relative(direction));
+			if (isVanillaSpringHost(neighbor, water)) rocks++;
+			if (neighbor.isAir()) holes++;
+		}
+		return rocks == 4 && holes == 1;
+	}
+
+	private static boolean isVanillaSpringHost(BlockState state, boolean water) {
+		Block block = state.getBlock();
+		return block == Blocks.STONE || block == Blocks.GRANITE
+				|| block == Blocks.DIORITE || block == Blocks.ANDESITE
+				|| block == Blocks.DEEPSLATE || block == Blocks.TUFF
+				|| block == Blocks.CALCITE || block == Blocks.DIRT
+				|| water && (block == Blocks.SNOW_BLOCK || block == Blocks.POWDER_SNOW
+						|| block == Blocks.PACKED_ICE);
+	}
+
+	private static void updateDigestInt(MessageDigest digest, int value) {
+		digest.update((byte) (value >>> 24));
+		digest.update((byte) (value >>> 16));
+		digest.update((byte) (value >>> 8));
+		digest.update((byte) value);
+	}
+
+	private record SpringCoordinate(int x, int y, int z, String fluid) {
 	}
 
 	static boolean ownsServerShutdown(Class<? extends MinecraftServer> serverType) {

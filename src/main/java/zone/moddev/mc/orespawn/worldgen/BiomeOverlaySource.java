@@ -13,6 +13,7 @@ import zone.moddev.mc.orespawn.worldgen.BakedBiomeWorldgen.Choice;
 import net.minecraft.core.Holder;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeSource;
+import net.minecraft.world.level.biome.BiomeResolver;
 import net.minecraft.world.level.biome.Climate;
 
 /** Delegates biome choice first, then applies pre-baked provider palettes. */
@@ -56,11 +57,15 @@ final class BiomeOverlaySource extends BiomeSource {
 	}
 
 	@Override
-	public Holder<Biome> getNoiseBiome(int quartX, int quartY, int quartZ,
-			Climate.Sampler sampler) {
-		Holder<Biome> selected = delegate.getNoiseBiome(quartX, quartY, quartZ, sampler);
-		for (Palette palette : palettes) selected = select(palette, selected, quartX, quartZ);
-		return selected;
+	public BiomeResolver createResolver(Climate.Sampler sampler) {
+		BiomeResolver resolver = delegate.createResolver(sampler);
+		return (quartX, quartY, quartZ) -> {
+			Holder<Biome> selected = resolver.getNoiseBiome(quartX, quartY, quartZ);
+			for (Palette palette : palettes) {
+				selected = select(palette, selected, quartX, quartZ);
+			}
+			return selected;
+		};
 	}
 
 	private Holder<Biome> select(Palette palette, Holder<Biome> source, int quartX, int quartZ) {

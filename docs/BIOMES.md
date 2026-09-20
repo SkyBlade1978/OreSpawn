@@ -93,7 +93,7 @@ default states contain real fluids.
 
 ## Registering Biomes
 
-Minecraft 26.2 loads biomes from the dynamic datapack registry. A provider mod
+Minecraft 26.3 loads biomes from the dynamic datapack registry. A provider mod
 can ship a biome directly at
 `data/<modid>/worldgen/biome/<name>.json`. For generated data,
 `OreSpawnBiomes.copyAndRegister` copies a known biome's complete builder before
@@ -114,7 +114,7 @@ Add the bootstrap to the `RegistrySetBuilder` passed to Forge's
 `DatapackBuiltinEntriesProvider`. `blankAndRegister` starts from an empty
 builder and is intended for advanced providers that deliberately supply every
 required climate, effects, spawn, and generation field. Do not use
-`DeferredRegister<Biome>` on 26.2: it runs before the live datapack biome
+`DeferredRegister<Biome>` on 26.3: it runs before the live datapack biome
 registry exists. Both bootstrap helpers only generate content; placement still
 belongs in the OreSpawn provider declaration.
 

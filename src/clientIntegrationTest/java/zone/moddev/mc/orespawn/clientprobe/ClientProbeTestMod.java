@@ -220,7 +220,7 @@ public final class ClientProbeTestMod {
 
 	private static void validateCaptions(Screen screen) {
 		for (AbstractWidget widget : widgets(screen)) {
-			// Minecraft 26.2's create-world menu uses an empty-captioned composite
+			// Minecraft 26.3's create-world menu uses an empty-captioned composite
 			// container; its visible tab controls are checked independently.
 			if (widget instanceof MenuTabBar) continue;
 			String caption = ChatFormatting.stripFormatting(widget.getMessage().getString());
@@ -495,7 +495,7 @@ public final class ClientProbeTestMod {
 
 	private static void stopIntegratedServer(Minecraft minecraft) {
 		// Tell the integrated server to stop through the client connection first, then
-		// use Forge 65's disconnect path to wait for shutdown and clear the client level.
+		// use Forge 66's disconnect path to wait for shutdown and clear the client level.
 		if (minecraft.level != null) minecraft.level.disconnect(Component.literal("Client probe complete"));
 		minecraft.disconnect(new TitleScreen(), false);
 	}
@@ -510,7 +510,7 @@ public final class ClientProbeTestMod {
 		values.setProperty("reload_rendered", Boolean.toString(reloadWorldFrames >= 8));
 		values.setProperty("world_directory", WORLD_DIRECTORY);
 		try (FileOutputStream output = new FileOutputStream(new File("client-smoke-pass.properties"))) {
-			values.store(output, "OreSpawn Forge 26.2 client integration gate");
+			values.store(output, "OreSpawn Forge 26.3 client integration gate");
 		}
 	}
 

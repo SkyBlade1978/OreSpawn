@@ -19,20 +19,20 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.lighting.LightEngine;
-import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
 import net.minecraft.world.level.levelgen.feature.Feature;
-import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
-import net.minecraft.world.level.levelgen.feature.configurations.FeatureConfiguration;
-import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
+import net.minecraft.util.RandomSource;
 
 import com.mojang.serialization.Codec;
 
-public class StoneReplacer extends Feature<NoneFeatureConfiguration> {
+public class StoneReplacer implements Feature {
 	public static final StoneReplacer FEATURE = new StoneReplacer();
+	public static final com.mojang.serialization.MapCodec<StoneReplacer> CODEC =
+			com.mojang.serialization.MapCodec.unit(FEATURE);
 	private static final MatchingStoneGateFeature MATCHING_STONE_GATE =
 			new MatchingStoneGateFeature();
 	private static final Identifier[] VANILLA_MATCHING_STONE_FEATURES = new Identifier[] {
@@ -53,7 +53,6 @@ public class StoneReplacer extends Feature<NoneFeatureConfiguration> {
 			new ConcurrentHashMap<>();
 
 	private StoneReplacer() {
-		super(NoneFeatureConfiguration.CODEC);
 	}
 
 	public static void registerConfiguredFeature() {
@@ -98,14 +97,19 @@ public class StoneReplacer extends Feature<NoneFeatureConfiguration> {
 		return changed;
 	}
 
-	public static Feature<?> matchingStoneGateFeature() {
-		return MATCHING_STONE_GATE;
+	public static com.mojang.serialization.MapCodec<? extends Feature>
+			matchingStoneGateCodec() {
+		return MatchingStoneGateFeature.CODEC;
 	}
 
 	@Override
-	public boolean place(FeaturePlaceContext<NoneFeatureConfiguration> context) {
-		WorldGenLevel world = context.level();
-		BlockPos pos = context.origin();
+	public com.mojang.serialization.MapCodec<StoneReplacer> codec() {
+		return CODEC;
+	}
+
+	@Override
+	public boolean place(WorldGenLevel world, ChunkGenerator chunkGenerator,
+			RandomSource random, BlockPos pos) {
 		net.minecraft.resources.ResourceKey<Level> dimension = world.getLevel().dimension();
 		BakedTerrainDimension terrain = GeomeConfig.terrainDimension(dimension);
 		BakedGeomeConfig config = GeomeConfig.baked(dimension);
@@ -172,11 +176,9 @@ public class StoneReplacer extends Feature<NoneFeatureConfiguration> {
 	}
 
 	private static Holder<PlacedFeature> matchingStoneGate(Holder<PlacedFeature> original) {
-		MatchingStoneConfig config = new MatchingStoneConfig(original.value().feature());
-		Holder<ConfiguredFeature<?, ?>> configured = Holder.direct(
-				new ConfiguredFeature<MatchingStoneConfig, MatchingStoneGateFeature>(
-						MATCHING_STONE_GATE, config));
-		return Holder.direct(new PlacedFeature(configured, original.value().placement()));
+		return Holder.direct(new PlacedFeature(
+				Holder.direct(new MatchingStoneGateFeature(original.value().feature())),
+				original.value().placement()));
 	}
 
 	private CachedGeology geology(net.minecraft.resources.ResourceKey<Level> dimension, long seed,
@@ -201,34 +203,36 @@ public class StoneReplacer extends Feature<NoneFeatureConfiguration> {
 		return current;
 	}
 
-	private static final class MatchingStoneConfig implements FeatureConfiguration {
-		static final Codec<MatchingStoneConfig> CODEC = ConfiguredFeature.CODEC
-				.fieldOf("delegate")
-				.xmap(MatchingStoneConfig::new, value -> value.delegate)
-				.codec();
-		final Holder<ConfiguredFeature<?, ?>> delegate;
+	private static final class MatchingStoneGateFeature implements Feature {
+		static final com.mojang.serialization.MapCodec<MatchingStoneGateFeature> CODEC =
+				Feature.CODEC.fieldOf("delegate")
+						.xmap(MatchingStoneGateFeature::new, value -> value.delegate);
+		final Holder<Feature> delegate;
 
-		MatchingStoneConfig(Holder<ConfiguredFeature<?, ?>> delegate) {
-			this.delegate = delegate;
-		}
-	}
-
-	private static final class MatchingStoneGateFeature extends Feature<MatchingStoneConfig> {
 		MatchingStoneGateFeature() {
-			super(MatchingStoneConfig.CODEC);
+			this(Holder.direct(FEATURE));
+		}
+
+		MatchingStoneGateFeature(Holder<Feature> delegate) {
+			this.delegate = delegate;
 		}
 
 		@Override
-		public boolean place(FeaturePlaceContext<MatchingStoneConfig> context) {
-			ResourceKey<Level> dimension = context.level().getLevel().dimension();
+		public com.mojang.serialization.MapCodec<MatchingStoneGateFeature> codec() {
+			return CODEC;
+		}
+
+		@Override
+		public boolean place(WorldGenLevel world, ChunkGenerator chunkGenerator,
+				RandomSource random, BlockPos origin) {
+			ResourceKey<Level> dimension = world.getLevel().dimension();
 			if (!WorldgenBenchmark.isVanillaBaseline()
 					&& TerrainFeaturePolicy.shouldSuppressVanillaMatchingStoneFeature(
 							dimension, OreSpawnConfig.placeOreSpawnRock(),
 							GeomeConfig.hasTerrainReplacement(dimension))) {
 				return false;
 			}
-			return context.config().delegate.value().place(context.level(),
-					context.chunkGenerator(), context.random(), context.origin());
+			return delegate.value().place(world, chunkGenerator, random, origin);
 		}
 	}
 
