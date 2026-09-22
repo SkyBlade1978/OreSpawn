@@ -14,7 +14,8 @@ This branch builds target-qualified version `4.1.0.110021`: the OreSpawn 4.1.0
 feature set for Minecraft 1.10.2 and Forge. It adds stable generation identity,
 non-loading geology sampling, per-resource background control, existing-world
 provider merge policy, an Ore Sources arbiter for equivalent provider ores and
-a client world-settings extension point for add-ons such as Realistic Deposits
+a biome directory with exact new-terrain replacement overrides, plus a client
+world-settings extension point for add-ons such as Realistic Deposits
 while retaining API major 1. See the
 [versioning policy](docs/VERSIONS.md) for the encoding and release convention.
 
@@ -89,6 +90,16 @@ Native vanilla outputs become controllable placement sources only while
 **Manage Vanilla Ores** is enabled. Ore Sources updates immediately when that
 option changes, and Group Settings prevents moving a vanilla ore alias while
 management is off, with a prompt to enable it first.
+
+**Biomes** opens a directory rather than editing only the first palette. It
+shows every provider/profile palette in its stored order, the effective surface
+rule, owner, climate constraints, dimension materials and geome influences.
+Routine unmanaged biomes are hidden behind **Show All**. A loaded biome may be
+left unchanged or replaced exactly in newly generated terrain; missing targets
+remain dormant and resume if their mod returns. The final user replacement
+layer always runs after ordinary palettes, while existing chunks are never
+rewritten. Provider, palette, dimension and all-biome resets remain pending
+until the main editor's **Done** action; **Cancel** discards them.
 
 Important files:
 
@@ -169,7 +180,9 @@ underwater, immediate filler, and ceiling-underside behavior. It also proves
 later vegetation, structures, and block entities
 survive, validates provider-rock vanilla springs and an external ore-pattern
 registration, then reopens and checks the exact saved world. The fixture is
-not included in OreSpawn's published jars.
+not included in OreSpawn's published jars. It also exercises multiple palettes
+in one dimension, an unmanaged loaded biome, exact terminal replacement in new
+chunks, unchanged old chunks, and fresh/reload profile and surface parity.
 
 Import or refresh this ForgeGradle 7 project through Eclipse Buildship, then run
 `genEclipseRuns`; do not run the removed ForgeGradle 2

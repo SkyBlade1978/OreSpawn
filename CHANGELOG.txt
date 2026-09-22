@@ -1,5 +1,19 @@
 Version 4.1.0.110021
 
+* Replace the first-palette-only biome editor with a responsive biome directory
+  that reports every loaded, referenced and missing biome once, together with
+  palette ownership, effective order, placement count and surface conflicts.
+* Add exact one-to-one biome replacements for newly generated terrain through a
+  reserved terminal palette which always runs after ordinary provider/profile
+  palettes. Replacement chains flatten, cycles are rejected and missing targets
+  remain dormant until their owning mod returns.
+* Expose palette enablement, placement weights, climate and dependency limits,
+  surfaces, namespace scope, region size, coverage, fallback weight, dimension
+  materials and geome influences without adding arbitrary weighted biome output.
+* Add confirmed biome, palette, dimension and all-biome resets. Active providers
+  return to their shipped defaults, user-only palettes are removed and entries
+  owned by missing providers are preserved; all changes retain Done/Cancel
+  editor-session semantics and never rewrite existing chunks.
 * Add Ore Sources policies that group equivalent configured outputs by material
   and dimension while keeping ordinary and custom placement channels independent.
 * Consolidate only reviewed high-confidence MMD conflicts for new worlds;
