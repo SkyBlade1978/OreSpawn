@@ -35,6 +35,7 @@ import org.apache.logging.log4j.Logger;
 
 /** Bakes and installs optional biome and dimension-material integration. */
 final class BiomeWorldgenManager {
+	private static final String UI_OVERRIDE_PREFIX = "orespawn:ui/biome_overrides/";
 	private static final Logger LOGGER = LogManager.getLogger();
 	private static volatile Map<ResourceLocation, BakedBiomeWorldgen> baked =
 			Collections.emptyMap();
@@ -118,7 +119,8 @@ final class BiomeWorldgenManager {
 			ResourceLocation dimension, Map<Biome, Surface> surfaces) {
 		JsonObject section = object(root, "biome_palettes");
 		List<Palette> result = new ArrayList<>();
-		for (Entry<String, JsonElement> paletteEntry : section.entrySet()) {
+		List<Entry<String, JsonElement>> ordered = orderedPaletteEntries(section);
+		for (Entry<String, JsonElement> paletteEntry : ordered) {
 			if (!paletteEntry.getValue().isJsonObject()) continue;
 			JsonObject json = paletteEntry.getValue().getAsJsonObject();
 			if (!bool(json, "enabled", true)
@@ -176,6 +178,17 @@ final class BiomeWorldgenManager {
 					bakedEntries, bakeChoices(json, bakedEntries)));
 		}
 		return result;
+	}
+
+	static List<Entry<String, JsonElement>> orderedPaletteEntries(JsonObject section) {
+		List<Entry<String, JsonElement>> ordered = new ArrayList<>();
+		for (Entry<String, JsonElement> entry : section.entrySet()) {
+			if (!entry.getKey().startsWith(UI_OVERRIDE_PREFIX)) ordered.add(entry);
+		}
+		for (Entry<String, JsonElement> entry : section.entrySet()) {
+			if (entry.getKey().startsWith(UI_OVERRIDE_PREFIX)) ordered.add(entry);
+		}
+		return ordered;
 	}
 
 	private static Map<Biome, Choice> bakeChoices(

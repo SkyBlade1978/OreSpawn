@@ -27,6 +27,8 @@ import zone.moddev.mc.orespawn.worldgen.RockFamily;
 import zone.moddev.mc.orespawn.init.OreSpawnPatterns;
 import zone.moddev.mc.orespawn.api.OreDimensionSelector;
 import zone.moddev.mc.orespawn.worldgen.WorldGeologyProfile;
+import zone.moddev.mc.orespawn.integration.WorldgenIntegrationManager;
+import zone.moddev.mc.orespawn.integration.WorldgenIntegrationManager.BiomeProviderDefaultsSnapshot;
 
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
@@ -62,6 +64,7 @@ final class GeologyEditorSession {
 	private final JsonObject original;
 	private final JsonObject root;
 	private JsonObject oreSourceOriginal;
+	private final BiomeProviderDefaultsSnapshot biomeProviderDefaults;
 	private final Set<String> availableDimensionIds = new TreeSet<>();
 
 	GeologyEditorSession(WorldGeologyProfile profile) {
@@ -70,6 +73,7 @@ final class GeologyEditorSession {
 
 	GeologyEditorSession(WorldGeologyProfile profile, Iterable<String> dimensions) {
 		originalProfile = profile;
+		biomeProviderDefaults = WorldgenIntegrationManager.biomeProviderDefaults();
 		original = profile.rootCopy();
 		root = profile.rootCopy();
 		normalizeRegistrySections(original);
@@ -1182,6 +1186,159 @@ final class GeologyEditorSession {
 		}
 		Collections.sort(result);
 		return result;
+	}
+
+	BiomeDirectoryModel.Snapshot biomeDirectory() {
+		return BiomeDirectoryModel.snapshot(root, biomeProviderDefaults, availableDimensionIds());
+	}
+
+	List<String> biomePaletteIds(String dimensionId) {
+		List<String> result = new ArrayList<>();
+		for (Entry<String, JsonElement> entry : section("biome_palettes").entrySet()) {
+			if (!entry.getValue().isJsonObject()
+					|| BiomeReplacementRules.isOverridePalette(entry.getKey())) continue;
+			if (dimensionId.equals(string(entry.getValue().getAsJsonObject(), "dimension", ""))) {
+				result.add(entry.getKey());
+			}
+		}
+		return Collections.unmodifiableList(result);
+	}
+
+	JsonObject biomePaletteById(String paletteId) {
+		JsonObject palettes = section("biome_palettes");
+		return palettes.has(paletteId) && palettes.get(paletteId).isJsonObject()
+				? palettes.getAsJsonObject(paletteId) : null;
+	}
+
+	List<String> biomePlacementIdsForPalette(String paletteId) {
+		JsonObject palette = biomePaletteById(paletteId);
+		if (palette == null) return Collections.emptyList();
+		List<String> result = new ArrayList<>(JsonCopies.keys(object(palette, "biomes")));
+		Collections.sort(result);
+		return Collections.unmodifiableList(result);
+	}
+
+	JsonObject biomePlacementByPalette(String paletteId, String biomeId) {
+		JsonObject palette = biomePaletteById(paletteId);
+		if (palette == null) throw new IllegalArgumentException("Unknown biome palette " + paletteId);
+		return objectEntry(object(palette, "biomes"), biomeId);
+	}
+
+	void removeBiomePlacementByPalette(String paletteId, String biomeId) {
+		JsonObject palette = biomePaletteById(paletteId);
+		if (palette != null) object(palette, "biomes").remove(biomeId);
+	}
+
+	Map<String, String> biomeReplacements(String dimensionId) {
+		return BiomeReplacementRules.read(root, dimensionId);
+	}
+
+	void replaceBiome(String dimensionId, String sourceId, String targetId) {
+		if (!loadedBiome(sourceId) || !loadedBiome(targetId)) {
+			throw new IllegalArgumentException("Both replacement biomes must be loaded");
+		}
+		BiomeReplacementRules.set(root, dimensionId, sourceId, targetId);
+	}
+
+	void leaveBiomeOriginal(String dimensionId, String sourceId) {
+		BiomeReplacementRules.remove(root, dimensionId, sourceId);
+	}
+
+	void resetBiome(String dimensionId, String biomeId) {
+		leaveBiomeOriginal(dimensionId, biomeId);
+		JsonObject defaults = biomeProviderDefaults.biomePalettesCopy();
+		Set<String> active = biomeProviderDefaults.activeProviderIds();
+		JsonObject palettes = section("biome_palettes");
+		for (String id : new ArrayList<>(JsonCopies.keys(palettes))) {
+			if (BiomeReplacementRules.isOverridePalette(id) || !palettes.get(id).isJsonObject()) continue;
+			JsonObject palette = palettes.getAsJsonObject(id);
+			if (!dimensionId.equals(string(palette, "dimension", ""))) continue;
+			String owner = string(palette, "source_provider", "");
+			if (!owner.isEmpty() && !active.contains(owner)) continue;
+			JsonObject entries = object(palette, "biomes");
+			JsonObject defaultPalette = defaults.has(id) && defaults.get(id).isJsonObject()
+					? defaults.getAsJsonObject(id) : null;
+			JsonObject defaultEntries = defaultPalette == null ? new JsonObject()
+					: object(defaultPalette, "biomes");
+			if (defaultEntries.has(biomeId)) {
+				entries.add(biomeId, JsonCopies.copy(defaultEntries.get(biomeId)));
+			} else {
+				entries.remove(biomeId);
+			}
+		}
+		for (Entry<String, JsonElement> entry : defaults.entrySet()) {
+			if (!entry.getValue().isJsonObject()) continue;
+			JsonObject definition = entry.getValue().getAsJsonObject();
+			if (!dimensionId.equals(string(definition, "dimension", ""))
+					|| !object(definition, "biomes").has(biomeId)) continue;
+			if (!palettes.has(entry.getKey())) {
+				palettes.add(entry.getKey(), JsonCopies.copy(definition));
+			} else if (palettes.get(entry.getKey()).isJsonObject()) {
+				object(palettes.getAsJsonObject(entry.getKey()), "biomes").add(biomeId,
+						JsonCopies.copy(object(definition, "biomes").get(biomeId)));
+			}
+		}
+	}
+
+	void resetBiomePalette(String paletteId) {
+		JsonObject palettes = section("biome_palettes");
+		if (!palettes.has(paletteId) || !palettes.get(paletteId).isJsonObject()) return;
+		JsonObject current = palettes.getAsJsonObject(paletteId);
+		String owner = string(current, "source_provider", "");
+		if (!owner.isEmpty() && !biomeProviderDefaults.activeProviderIds().contains(owner)) return;
+		JsonObject defaults = biomeProviderDefaults.biomePalettesCopy();
+		if (defaults.has(paletteId)) palettes.add(paletteId, JsonCopies.copy(defaults.get(paletteId)));
+		else palettes.remove(paletteId);
+	}
+
+	void resetBiomeDimension(String dimensionId) {
+		resetBiomeSections(dimensionId);
+		BiomeReplacementRules.clearDimension(root, dimensionId);
+	}
+
+	void resetAllBiomeManagement() {
+		resetBiomeSections(null);
+		for (String dimension : new ArrayList<>(availableDimensionIds())) {
+			BiomeReplacementRules.clearDimension(root, dimension);
+		}
+	}
+
+	private void resetBiomeSections(String dimensionId) {
+		resetProviderSection("biome_palettes", biomeProviderDefaults.biomePalettesCopy(), dimensionId);
+		resetProviderSection("dimension_materials", biomeProviderDefaults.dimensionMaterialsCopy(), dimensionId);
+	}
+
+	private void resetProviderSection(String sectionName, JsonObject defaults, String dimensionId) {
+		JsonObject current = section(sectionName);
+		Set<String> active = biomeProviderDefaults.activeProviderIds();
+		for (String id : new ArrayList<>(JsonCopies.keys(current))) {
+			if (!current.get(id).isJsonObject()) continue;
+			JsonObject definition = current.getAsJsonObject(id);
+			if (dimensionId != null && !dimensionId.equals(string(definition, "dimension", ""))) continue;
+			String owner = string(definition, "source_provider", "");
+			if (!owner.isEmpty() && !active.contains(owner)) continue;
+			if (defaults.has(id)) current.add(id, JsonCopies.copy(defaults.get(id)));
+			else current.remove(id);
+		}
+		for (Entry<String, JsonElement> entry : defaults.entrySet()) {
+			if (!entry.getValue().isJsonObject()) continue;
+			JsonObject definition = entry.getValue().getAsJsonObject();
+			if (dimensionId == null || dimensionId.equals(string(definition, "dimension", ""))) {
+				current.add(entry.getKey(), JsonCopies.copy(definition));
+			}
+		}
+	}
+
+	boolean biomeTargetProviderDeclared(String dimensionId, String biomeId) {
+		for (BiomeDirectoryModel.BiomeEntry entry : biomeDirectory().entries(dimensionId, true)) {
+			if (biomeId.equals(entry.id)) return entry.providerDeclared;
+		}
+		return false;
+	}
+
+	private static boolean loadedBiome(String id) {
+		try { return ForgeRegistries.BIOMES.getValue(new ResourceLocation(id)) != null; }
+		catch (RuntimeException ignored) { return false; }
 	}
 
 	String biomePaletteId(String dimensionId) {
