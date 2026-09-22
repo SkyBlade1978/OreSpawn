@@ -170,6 +170,13 @@ final class GeologyEditorSession {
 				if (validResource(id)) result.add(new ResourceLocation(id).toString());
 			}
 		}
+		for (String sectionName : Arrays.asList("biome_palettes", "dimension_materials")) {
+			for (Entry<String, JsonElement> entry : section(sectionName).entrySet()) {
+				if (!entry.getValue().isJsonObject()) continue;
+				String id = string(entry.getValue().getAsJsonObject(), "dimension", "");
+				if (validResource(id)) result.add(new ResourceLocation(id).toString());
+			}
+		}
 		List<String> ordered = new ArrayList<>();
 		for (String vanilla : Arrays.asList("minecraft:overworld", "minecraft:the_nether", "minecraft:the_end")) {
 			ordered.add(vanilla);
@@ -1854,6 +1861,7 @@ final class GeologyEditorSession {
 				continue;
 			}
 			JsonObject palette = entry.getValue().getAsJsonObject();
+			boolean replacementPalette = BiomeReplacementRules.isOverridePalette(entry.getKey());
 			if (!validResource(string(palette, "dimension", ""))) {
 				errors.add("Invalid biome palette dimension: " + entry.getKey());
 			}
@@ -1863,7 +1871,8 @@ final class GeologyEditorSession {
 			if (biomes.entrySet().size() == 0) errors.add("Enabled biome palette has no biomes: " + entry.getKey());
 			for (Entry<String, JsonElement> biome : biomes.entrySet()) {
 				if (!validResource(biome.getKey())
-						|| ForgeRegistries.BIOMES.getValue(new ResourceLocation(biome.getKey())) == null
+						|| (!replacementPalette
+								&& ForgeRegistries.BIOMES.getValue(new ResourceLocation(biome.getKey())) == null)
 						|| !biome.getValue().isJsonObject()) {
 					errors.add("Invalid biome placement: " + biome.getKey());
 					continue;

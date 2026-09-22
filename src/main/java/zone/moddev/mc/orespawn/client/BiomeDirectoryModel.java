@@ -62,7 +62,8 @@ final class BiomeDirectoryModel {
 			palettes.add(new Palette(entry.getKey(), dimension,
 					string(palette, "source_provider", owner(entry.getKey())),
 					order++, bool(palette, "enabled", true),
-					BiomeReplacementRules.isOverridePalette(entry.getKey()), palette));
+					BiomeReplacementRules.isOverridePalette(entry.getKey()),
+					palette.has("source_provider"), palette));
 		}
 
 		Map<String, Set<String>> providerBiomes = providerBiomes(providerPalettes);
@@ -79,9 +80,12 @@ final class BiomeDirectoryModel {
 				List<Placement> rules = placements.getOrDefault(id, Collections.emptyList());
 				boolean managed = providerBiomes.getOrDefault(dimension, Collections.emptySet()).contains(id);
 				boolean enabled = false;
+				boolean missingProvider = false;
 				for (Placement placement : rules) enabled |= placement.enabled;
+				for (Placement placement : rules) missingProvider |= placement.providerOwned
+						&& !activeProviders.contains(placement.owner);
 				Status status;
-				if (biome == null) status = Status.MISSING;
+				if (biome == null || missingProvider) status = Status.MISSING;
 				else if (replacements.containsKey(id)) status = Status.USER_REPLACED;
 				else if (rules.size() > 1) status = Status.LAYERED;
 				else if (!rules.isEmpty() && !enabled) status = Status.DISABLED;
@@ -130,7 +134,8 @@ final class BiomeDirectoryModel {
 				boolean hasSurface = placement.has("surface") && placement.get("surface").isJsonObject()
 						&& !placement.getAsJsonObject("surface").entrySet().isEmpty();
 				list.add(new Placement(palette.id, palette.owner, palette.order,
-						palette.enabled && bool(placement, "enabled", true), hasSurface, false, placement));
+						palette.enabled && bool(placement, "enabled", true), hasSurface, false,
+						palette.providerOwned, placement));
 				if (palette.enabled && bool(placement, "enabled", true) && hasSurface) {
 					lastSurface.put(entry.getKey(), list.size() - 1);
 				}
@@ -235,12 +240,12 @@ final class BiomeDirectoryModel {
 	static final class Palette {
 		final String id, dimension, owner;
 		final int order;
-		final boolean enabled, override;
+		final boolean enabled, override, providerOwned;
 		final JsonObject definition;
 		Palette(String id, String dimension, String owner, int order, boolean enabled,
-				boolean override, JsonObject definition) {
+				boolean override, boolean providerOwned, JsonObject definition) {
 			this.id = id; this.dimension = dimension; this.owner = owner; this.order = order;
-			this.enabled = enabled; this.override = override;
+			this.enabled = enabled; this.override = override; this.providerOwned = providerOwned;
 			this.definition = JsonCopies.copy(definition);
 		}
 	}
@@ -248,17 +253,19 @@ final class BiomeDirectoryModel {
 	static final class Placement {
 		final String paletteId, owner;
 		final int order;
-		final boolean enabled, hasSurface, effectiveSurface;
+		final boolean enabled, hasSurface, effectiveSurface, providerOwned;
 		final JsonObject definition;
 		Placement(String paletteId, String owner, int order, boolean enabled,
-				boolean hasSurface, boolean effectiveSurface, JsonObject definition) {
+				boolean hasSurface, boolean effectiveSurface, boolean providerOwned,
+				JsonObject definition) {
 			this.paletteId = paletteId; this.owner = owner; this.order = order;
 			this.enabled = enabled; this.hasSurface = hasSurface;
-			this.effectiveSurface = effectiveSurface;
+			this.effectiveSurface = effectiveSurface; this.providerOwned = providerOwned;
 			this.definition = JsonCopies.copy(definition);
 		}
 		Placement withEffectiveSurface(boolean value) {
-			return new Placement(paletteId, owner, order, enabled, hasSurface, value, definition);
+			return new Placement(paletteId, owner, order, enabled, hasSurface, value,
+					providerOwned, definition);
 		}
 	}
 

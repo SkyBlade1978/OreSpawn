@@ -27,7 +27,7 @@ class OreSpawnScreenLayoutTest {
 					.sorted()
 					.collect(Collectors.toList());
 		}
-		assertEquals(27, screens.size(), "Review this render-order gate when screens are added or removed");
+		assertEquals(28, screens.size(), "Review this render-order gate when screens are added or removed");
 		for (Path screen : screens) {
 			String source = new String(Files.readAllBytes(screen), StandardCharsets.UTF_8);
 			int render = source.indexOf(
@@ -192,6 +192,44 @@ class OreSpawnScreenLayoutTest {
 				"leaving Material Groups must not persist future-world defaults");
 		assertTrue(groups.contains("minecraft.displayGuiScreen(parent)"),
 				"Done and Escape return to the pending ORES editor session");
+	}
+
+	@Test
+	void biomeDirectoryUsesTwoPanesAt426AndResponsivePagesAt320() throws Exception {
+		assertEquals(406, BiomeWorldMaterialsScreen.contentWidth(426));
+		assertEquals(174, BiomeWorldMaterialsScreen.leftPaneWidth(426));
+		assertEquals(181, BiomeWorldMaterialsScreen.listHeight(265));
+		assertEquals(300, BiomeWorldMaterialsScreen.contentWidth(320));
+		assertEquals(132, BiomeWorldMaterialsScreen.leftPaneWidth(320));
+		assertEquals(156, BiomeWorldMaterialsScreen.listHeight(240));
+		String source = screenSource("BiomeWorldMaterialsScreen.java");
+		assertTrue(source.contains("TWO_PANE_MINIMUM = 400"));
+		assertTrue(source.contains("new CompactScrollList(this, left, CONTENT_TOP"));
+		assertTrue(source.contains("if (compact) compactDetail = true"));
+		assertTrue(source.contains("button.orespawn.show_all"));
+		assertTrue(source.contains("button.orespawn.biome.hide_routine"));
+		assertTrue(source.contains("button.orespawn.biome.replace_new_terrain"));
+		assertTrue(source.contains("button.orespawn.biome.leave_original"));
+		assertTrue(source.contains("tooltip.orespawn.biome.no_retrogen"));
+		assertTrue(source.contains("new BiomePlacementScreen"));
+		assertTrue(source.contains("new BiomePaletteScreen"));
+		assertTrue(source.contains("new DimensionMaterialsScreen"));
+		assertTrue(source.contains("new GeomeBiomeScreen"));
+	}
+
+	@Test
+	void paletteSettingsExposeEveryExistingPaletteControl() throws Exception {
+		String settings = screenSource("BiomePaletteSettingsScreen.java");
+		for (String field : new String[] { "enabled", "mode", "scope", "region_size",
+				"coverage", "fallback_weight", "include_namespaces", "exclude_namespaces" }) {
+			assertTrue(settings.contains("\"" + field + "\""), field);
+		}
+		String palettes = screenSource("BiomePaletteScreen.java");
+		assertTrue(palettes.contains("session.biomeDirectory().palettes(dimension)"));
+		assertTrue(palettes.contains("resetBiomePalette"));
+		assertTrue(palettes.contains("resetBiomeDimension"));
+		assertTrue(palettes.contains("resetAllBiomeManagement"));
+		assertFalse(palettes.contains("button.orespawn.add_biome"));
 	}
 
 	private static String screenSource(String name) throws Exception {
