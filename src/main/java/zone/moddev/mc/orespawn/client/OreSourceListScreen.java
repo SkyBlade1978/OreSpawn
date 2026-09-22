@@ -32,6 +32,7 @@ final class OreSourceListScreen extends OreSpawnScreen {
 	private String selectedKey;
 	private String error;
 	private boolean showAll;
+	private boolean resetArmed;
 	private int groupScroll;
 	private int outputScroll;
 	private int leftPaneX;
@@ -65,8 +66,34 @@ final class OreSourceListScreen extends OreSpawnScreen {
 
 		initGroups(groups);
 		initOutputs(selected(groups));
-		addButton(new Button(width / 2 - 75, height - 28, 150, 20,
+		String resetLabel = I18n.format(resetArmed
+				? "button.orespawn.ore_source.confirm_reset_all"
+				: "button.orespawn.ore_source.reset_all");
+		int resetWidth = Math.min(leftPaneWidth, Math.max(54, font.getStringWidth(resetLabel) + 10));
+		Button reset = addButton(OreSpawnScreenLayout.button(this, font,
+				leftPaneX, height - 28, resetWidth, 20,
+				new TextComponentString(resetLabel), button -> resetAll()));
+		OreSpawnScreenLayout.explain(this, reset, "tooltip.orespawn.ore_source.reset_all");
+		int doneWidth = Math.min(150, rightPaneWidth);
+		addButton(new Button(rightPaneX + rightPaneWidth - doneWidth, height - 28, doneWidth, 20,
 				DialogTexts.GUI_DONE, button -> onClose()));
+	}
+
+	private void resetAll() {
+		if (!resetArmed) {
+			resetArmed = true;
+			error = null;
+			rebuild();
+			return;
+		}
+		session.resetOreSourcesToDefaults();
+		selectedKey = null;
+		groupScroll = 0;
+		outputScroll = 0;
+		showAll = false;
+		resetArmed = false;
+		error = null;
+		rebuild();
 	}
 
 	private void initGroups(final List<OreSourceGroup> groups) {
@@ -268,6 +295,7 @@ final class OreSourceListScreen extends OreSpawnScreen {
 	}
 
 	private void cycleMode(OreSourceGroup group) {
+		resetArmed = false;
 		if (!group.hasManagedPlacementSource()) {
 			if (!"keep_separate".equals(group.mode)) session.restoreOreSourceOriginalMode(group.key);
 			error = I18n.format("label.orespawn.ore_source.no_placement_rules");
@@ -299,6 +327,7 @@ final class OreSourceListScreen extends OreSpawnScreen {
 	}
 
 	private void captureScroll() {
+		resetArmed = false;
 		if (groupList != null) groupScroll = groupList.firstIndex();
 		if (outputList != null) outputScroll = outputList.firstIndex();
 	}

@@ -467,3 +467,6 @@ tooltip.orespawn.ore_source.placement_select=点击以选择有效的受管理�
 tooltip.orespawn.ore_source.external_excluded=独立外部生成器会显示，但不能选作放置规则。
 button.orespawn.ore_source.hide_single=隐藏单项
 tooltip.orespawn.ore_source.group_colours=绿色条目只有一个别名和一个输出，无需处理。黄色分组已有保存的规则。红色分组需要处理。显示全部会包含绿色条目。
+button.orespawn.ore_source.reset_all=全部重置
+button.orespawn.ore_source.confirm_reset_all=确认重置
+tooltip.orespawn.ore_source.reset_all=恢复内置材料分组，并根据当前加载的矿石重新创建来源策略。更改会保持待定，直到在主编辑器中点击完成。

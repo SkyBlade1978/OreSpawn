@@ -51,6 +51,10 @@ Version 4.1.0.110021
 * Restrict Delete to empty custom groups. Populated custom groups use a
   confirmed Dissolve Group action that restores every alias to its inferred or
   curated group; discovered groups remain non-deletable facts.
+* Keep reassigned source policies dormant when a saved custom group is reopened,
+  so their former inferred groups do not reappear as false conflicts. Add a
+  confirmed Reset All action that restores built-in and inferred Ore Sources
+  defaults inside the pending editor session without rewriting existing chunks.
 * Add provider schema 5 material and placement-channel declarations, global
   schema 8 and world-profile schema 7 while retaining older readable schemas.
 * Add an extended, binary-compatible ore generation context exposing stable

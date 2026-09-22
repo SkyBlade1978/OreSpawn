@@ -76,7 +76,10 @@ chooses one output, **Custom** allows a weighted subset, and **Keep Original**
 preserves every active rule and restores the selections that were present when
 the editor was opened. A red Keep Original group exposes **Accept** so its
 unchanged policy can be marked reviewed; this remains pending until the main
-editor's **Done** is used. A Placement Rules row reports how many managed
+editor's **Done** is used. **Reset All** requires confirmation, removes custom
+grouping and output choices from the pending edit, then rebuilds the built-in
+and inferred groups from the currently loaded ores. It also remains pending
+until the main editor's **Done** is used, while Cancel discards it. A Placement Rules row reports how many managed
 sources are available, can cycle among them only in a consolidated mode, and
 its help explains that the choice is inactive under Keep Original.
 Existing worlds start in

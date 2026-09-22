@@ -467,3 +467,6 @@ tooltip.orespawn.ore_source.placement_select=Haz clic para elegir entre fuentes 
 tooltip.orespawn.ore_source.external_excluded=Los generadores externos se informan, pero no pueden elegirse como reglas de colocación.
 button.orespawn.ore_source.hide_single=Ocultar individuales
 tooltip.orespawn.ore_source.group_colours=Las entradas verdes tienen un alias y una salida y no requieren acción. Los grupos amarillos tienen una regla guardada. Los grupos rojos requieren atención. Mostrar todo incluye las entradas verdes.
+button.orespawn.ore_source.reset_all=Restablecer todo
+button.orespawn.ore_source.confirm_reset_all=Confirmar restablecimiento
+tooltip.orespawn.ore_source.reset_all=Restaura los grupos de materiales incorporados y vuelve a crear las políticas desde los minerales cargados. El cambio queda pendiente hasta pulsar Hecho en el editor principal.

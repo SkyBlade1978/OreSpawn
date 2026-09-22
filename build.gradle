@@ -396,6 +396,9 @@ task surfaceIntegrationTest(dependsOn: surfaceIntegrationReloadProcess) {
         if (result.getProperty('reload_verified') != 'true') {
             throw new GradleException("Surface integration reload was not verified: ${marker}")
         }
+        if (result.getProperty('ore_sources_reset_verified') != 'true') {
+            throw new GradleException("Ore-source editor/profile/generation integration was not verified: ${marker}")
+        }
         if (!(result.getProperty('dynamic_fluid_placements') ?: '0').isInteger()
                 || result.getProperty('dynamic_fluid_placements').toInteger() <= 0) {
             throw new GradleException("Dynamic fluid-deposit probe did not place any blocks: ${marker}")
@@ -1057,6 +1060,7 @@ tasks.register('verifyReleaseArtifacts') {
                 ['src/test/', 'src/biomeIntegrationTest/', 'src/migrationIntegrationTest/',
                  'src/clientIntegrationTest/', 'src/os1AbiFixture/', 'src/os3AbiFixture/',
                  'agent-notes/', 'surfaceprobe', 'migrationprobe', 'clientprobe',
+                 'OreSourceEditorProbeBridge',
                  'org/junit/', 'org/mockito/', 'net/bytebuddy/'].each { forbidden ->
                     if (candidateZip.entries().any { it.name.contains(forbidden) }) {
                         throw new GradleException(
@@ -1494,6 +1498,7 @@ tasks.register('verifyEclipseProductionClasspath') {
                 'src/test', 'bin/test', 'build/classes/java/test',
                 'biomeIntegrationTest', 'migrationIntegrationTest', 'clientIntegrationTest',
                 'os1AbiFixture', 'os3AbiFixture', 'surfaceprobe', 'migrationprobe', 'clientprobe',
+                'OreSourceEditorProbeBridge',
                 'junit-', 'opentest4j-', 'junit-platform-', 'Mineralogy-1.10.2-3.3.8.26.jar'
         ]
         launchFiles.each { launch ->

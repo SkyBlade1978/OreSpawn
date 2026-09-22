@@ -467,3 +467,6 @@ tooltip.orespawn.ore_source.placement_select=Cliquez pour choisir entre les sour
 tooltip.orespawn.ore_source.external_excluded=Les générateurs externes sont signalés mais ne peuvent pas être choisis comme règles de placement.
 button.orespawn.ore_source.hide_single=Masquer les entrées simples
 tooltip.orespawn.ore_source.group_colours=Les entrées vertes ont un alias et une sortie et ne demandent aucune action. Les groupes jaunes ont une règle enregistrée. Les groupes rouges demandent votre attention. Afficher tout inclut les entrées vertes.
+button.orespawn.ore_source.reset_all=Tout réinitialiser
+button.orespawn.ore_source.confirm_reset_all=Confirmer la réinitialisation
+tooltip.orespawn.ore_source.reset_all=Restaure les groupes intégrés et recrée les règles depuis les minerais chargés. Le changement reste en attente jusqu'au bouton Terminé de l'éditeur principal.

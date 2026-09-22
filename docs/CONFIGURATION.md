@@ -245,6 +245,12 @@ still needs review, **Accept** leaves those restored values unchanged and only
 marks the policy reviewed. Like every Ore Sources edit, it is persisted only by
 the main editor's **Done** action.
 
+**Reset All** is a confirmed pending action. It removes custom material groups
+and source-policy choices, restores the built-in aliases, and rediscovers the
+inferred groups from the ores currently loaded. It does not rewrite generated
+chunks. The reset reaches the world profile and future-world defaults only when
+the main editor's **Done** action succeeds; its **Cancel** action discards it.
+
 The Ore Sources screen keeps compact scrollable group and output lists visible
 together. Its default view hides harmless one-alias, one-output entries; **Show
 All** reveals them. Red groups need attention, yellow groups have a saved rule,

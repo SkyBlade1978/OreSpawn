@@ -61,6 +61,7 @@ final class GeologyEditorSession {
 	private final WorldGeologyProfile originalProfile;
 	private final JsonObject original;
 	private final JsonObject root;
+	private JsonObject oreSourceOriginal;
 	private final Set<String> availableDimensionIds = new TreeSet<>();
 
 	GeologyEditorSession(WorldGeologyProfile profile) {
@@ -73,6 +74,8 @@ final class GeologyEditorSession {
 		root = profile.rootCopy();
 		normalizeRegistrySections(original);
 		normalizeRegistrySections(root);
+		oreSourceOriginal = profile.rootCopy();
+		normalizeRegistrySections(oreSourceOriginal);
 		rememberDimension("minecraft:overworld");
 		rememberDimension("minecraft:the_nether");
 		rememberDimension("minecraft:the_end");
@@ -597,6 +600,18 @@ final class GeologyEditorSession {
 		return sectionCopy(root, "ore_material_groups");
 	}
 
+	void resetOreSourcesToDefaults() {
+		WorldGeologyProfile current = profile();
+		JsonObject reset = current.rootCopy();
+		reset.remove("ore_material_groups");
+		reset.remove("ore_source_policies");
+		WorldGeologyProfile defaults = WorldGeologyProfile.fromGlobalConfig(reset,
+				current.geologyMode(), current.placeFluidDeposits());
+		applyProfile(defaults);
+		oreSourceOriginal = defaults.rootCopy();
+		normalizeRegistrySections(oreSourceOriginal);
+	}
+
 	private void setOreMaterialGroup(String material, String displayName, List<String> aliases) {
 		JsonObject definition = objectEntry(section("ore_material_groups"), material);
 		definition.addProperty("display_name", displayName);
@@ -791,7 +806,7 @@ final class GeologyEditorSession {
 
 	void restoreOreSourceOriginalMode(String key) {
 		JsonObject policy = objectEntry(section("ore_source_policies"), key);
-		JsonObject originalPolicies = object(original, "ore_source_policies");
+		JsonObject originalPolicies = object(oreSourceOriginal, "ore_source_policies");
 		JsonObject originalPolicy = originalPolicies.has(key) && originalPolicies.get(key).isJsonObject()
 				? originalPolicies.getAsJsonObject(key) : null;
 		policy.addProperty("mode", "keep_separate");

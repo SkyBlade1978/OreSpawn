@@ -363,6 +363,64 @@ class GeologyEditorSessionTest {
 	}
 
 	@Test
+	void customAliasOwnershipSurvivesGlobalReloadWithoutReopeningOldGroups() {
+		WorldGeologyProfile original = profileWithNativePreciousOres();
+		GeologyEditorSession session = new GeologyEditorSession(original);
+		session.setManageVanillaOres(true);
+		String key = session.addOreMaterialGroup();
+		String material = key.substring(0, key.indexOf('|'));
+		session.renameOreMaterialGroup(material, "Precious Stones");
+		assertTrue(session.addOreMaterialAlias(material, "oreDiamond", true));
+		assertTrue(session.addOreMaterialAlias(material, "oreEmerald", true));
+
+		WorldGeologyProfile reloaded = WorldGeologyProfile.fromGlobalConfig(
+				session.profile().rootCopy(), session.profile().geologyMode(),
+				session.profile().placeFluidDeposits());
+		GeologyEditorSession reopened = new GeologyEditorSession(reloaded);
+
+		assertFalse(reopened.oreSourceGroups().stream()
+				.anyMatch(group -> "orespawn:diamond".equals(group.material)));
+		assertFalse(reopened.oreSourceGroups().stream()
+				.anyMatch(group -> "orespawn:emerald".equals(group.material)));
+		GeologyEditorSession.OreSourceGroup restored = group(reopened, material);
+		assertEquals(2, restored.outputCandidates().size());
+		assertEquals(Arrays.asList("oreDiamond", "oreEmerald"), restored.oreDictionaryEntries);
+		assertTrue(reloaded.rootCopy().getAsJsonObject("ore_source_policies")
+				.getAsJsonObject("orespawn:diamond|minecraft:overworld")
+				.get("dormant").getAsBoolean());
+		assertTrue(reloaded.rootCopy().getAsJsonObject("ore_source_policies")
+				.getAsJsonObject("orespawn:emerald|minecraft:overworld")
+				.get("dormant").getAsBoolean());
+	}
+
+	@Test
+	void resetAllOreSourcesRestoresBuiltInGroupsAndKeepsTheChangePending() {
+		GeologyEditorSession setup = new GeologyEditorSession(profileWithNativePreciousOres());
+		setup.setManageVanillaOres(true);
+		String key = setup.addOreMaterialGroup();
+		String material = key.substring(0, key.indexOf('|'));
+		setup.renameOreMaterialGroup(material, "Precious Stones");
+		assertTrue(setup.addOreMaterialAlias(material, "oreDiamond", true));
+		assertTrue(setup.addOreMaterialAlias(material, "oreEmerald", true));
+		WorldGeologyProfile savedCustomProfile = setup.profile();
+		JsonObject savedCustomJson = savedCustomProfile.rootCopy();
+		GeologyEditorSession session = new GeologyEditorSession(savedCustomProfile);
+
+		session.resetOreSourcesToDefaults();
+
+		assertTrue(session.profile().manageVanillaOres());
+		assertEquals("orespawn:diamond", session.oreDictionaryOwner("oreDiamond"));
+		assertEquals("orespawn:emerald", session.oreDictionaryOwner("oreEmerald"));
+		assertFalse(session.oreSourceGroups().stream()
+				.anyMatch(group -> material.equals(group.material)));
+		assertEquals(1, group(session, "orespawn:diamond").outputCandidates().size());
+		assertEquals(1, group(session, "orespawn:emerald").outputCandidates().size());
+		assertTrue(session.oreMaterialGroupsChanged());
+		assertEquals(savedCustomJson, savedCustomProfile.rootCopy(),
+				"Reset All must remain pending until the main editor saves it");
+	}
+
+	@Test
 	void customGroupRemovalDeletesOnlyEmptyGroupsAndDissolvesPopulatedGroups() {
 		GeologyEditorSession session = new GeologyEditorSession(profileWithNativePreciousOres());
 		session.setManageVanillaOres(true);

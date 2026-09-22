@@ -467,3 +467,6 @@ tooltip.orespawn.ore_source.placement_select=활성 관리 배치 소스 중 하
 tooltip.orespawn.ore_source.external_excluded=독립 외부 생성기는 보고되지만 배치 규칙으로 선택할 수 없습니다.
 button.orespawn.ore_source.hide_single=단일 항목 숨기기
 tooltip.orespawn.ore_source.group_colours=녹색 항목은 별칭과 출력이 각각 하나라 조치가 필요 없습니다. 노란색 그룹에는 저장된 규칙이 있습니다. 빨간색 그룹은 확인이 필요합니다. 모두 표시를 누르면 녹색 항목도 표시됩니다.
+button.orespawn.ore_source.reset_all=모두 초기화
+button.orespawn.ore_source.confirm_reset_all=초기화 확인
+tooltip.orespawn.ore_source.reset_all=기본 재료 그룹을 복원하고 현재 불러온 광석에서 소스 정책을 다시 만듭니다. 변경 사항은 기본 편집기에서 완료를 누를 때까지 보류됩니다.

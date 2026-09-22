@@ -467,3 +467,6 @@ tooltip.orespawn.ore_source.placement_select=Klicken, um zwischen aktiven verwal
 tooltip.orespawn.ore_source.external_excluded=Unabhängige externe Generatoren werden gemeldet, können aber nicht als Platzierungsregeln gewählt werden.
 button.orespawn.ore_source.hide_single=Einzelne ausblenden
 tooltip.orespawn.ore_source.group_colours=Grüne Einträge haben einen Alias und eine Ausgabe und benötigen keine Aktion. Gelbe Gruppen haben eine gespeicherte Regel. Rote Gruppen benötigen Aufmerksamkeit. Alle anzeigen schließt grüne Einträge ein.
+button.orespawn.ore_source.reset_all=Alles zurücksetzen
+button.orespawn.ore_source.confirm_reset_all=Zurücksetzen bestätigen
+tooltip.orespawn.ore_source.reset_all=Stellt die eingebauten Materialgruppen wieder her und erzeugt die Quellenregeln aus den aktuell geladenen Erzen neu. Die Änderung bleibt bis Fertig im Haupteditor ausstehend.

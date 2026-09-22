@@ -59,6 +59,9 @@ safely instead of breaking world creation.
   attention state. To keep an unchanged red Keep Original policy, press
   **Accept**; it marks the group reviewed without changing its outputs or
   placement rules. It is saved only when the main editor's **Done** is used.
+  **Reset All** asks for confirmation, removes pending custom groups and source
+  choices, and rebuilds the built-in and inferred groups from the currently
+  loaded ores. Main-editor **Cancel** still discards that reset.
   The cog beside a group opens its friendly
   name, Ore Dictionary aliases and **Placement Rules**. Outputs decide which
   block is used; Placement Rules decide the frequency, shape, depth and host

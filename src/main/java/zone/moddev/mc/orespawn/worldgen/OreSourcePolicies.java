@@ -67,6 +67,7 @@ final class OreSourcePolicies {
 					? policies.getAsJsonObject(key) : null;
 			JsonObject refreshed = previous == null
 					? createPolicy(group, existingWorld) : refreshPolicy(previous, group);
+			refreshed.remove("dormant");
 			if (previous == null || !previous.toString().equals(refreshed.toString())) {
 				policies.add(key, refreshed);
 				changed = true;
@@ -82,6 +83,9 @@ final class OreSourcePolicies {
 			Group group = groups.get(key(material, domain));
 			if (group == null) group = new Group(material, domain);
 			JsonObject refreshed = refreshPolicy(previous, group);
+			if (candidatesWereReassigned(root, previous, material)) {
+				refreshed.addProperty("dormant", true);
+			}
 			if (!previous.toString().equals(refreshed.toString())) {
 				policies.add(entry.getKey(), refreshed);
 				changed = true;
@@ -89,6 +93,28 @@ final class OreSourcePolicies {
 		}
 		root.add(SECTION, policies);
 		return changed;
+	}
+
+	/**
+	 * A retained policy is missing from discovery either because its mod is absent or
+	 * because the user moved its inferred aliases into another material group. Missing
+	 * mods must remain visible; reassigned policies must remain stored but dormant.
+	 */
+	private static boolean candidatesWereReassigned(JsonObject root, JsonObject policy,
+			ResourceLocation material) {
+		if (!policy.has("candidates") || !policy.get("candidates").isJsonArray()) return false;
+		boolean foundInferredCandidate = false;
+		for (JsonElement element : policy.getAsJsonArray("candidates")) {
+			if (!element.isJsonObject()) continue;
+			JsonObject candidate = element.getAsJsonObject();
+			if (bool(candidate, "material_declared", false)) return false;
+			List<String> names = strings(candidate.get("ore_dictionary"));
+			if (names.isEmpty()) return false;
+			OreMaterialGroups.Inference inferred = OreMaterialGroups.infer(root, names);
+			if (inferred.material == null || material.equals(inferred.material)) return false;
+			foundInferredCandidate = true;
+		}
+		return foundInferredCandidate;
 	}
 
 	static Snapshot snapshot(JsonObject root) {

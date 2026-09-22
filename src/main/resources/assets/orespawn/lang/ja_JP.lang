@@ -467,3 +467,6 @@ tooltip.orespawn.ore_source.placement_select=クリックして有効な管理�
 tooltip.orespawn.ore_source.external_excluded=独立した外部生成は報告されますが、配置ルールには選択できません。
 button.orespawn.ore_source.hide_single=単一項目を隠す
 tooltip.orespawn.ore_source.group_colours=緑は別名と出力が各1つで操作不要です。黄は保存済みルールがあるグループです。赤は確認が必要です。すべて表示で緑の項目も表示します。
+button.orespawn.ore_source.reset_all=すべてリセット
+button.orespawn.ore_source.confirm_reset_all=リセットを確認
+tooltip.orespawn.ore_source.reset_all=組み込みの素材グループを復元し、現在読み込まれている鉱石からソースポリシーを再作成します。変更はメイン画面で完了を押すまで保留されます。

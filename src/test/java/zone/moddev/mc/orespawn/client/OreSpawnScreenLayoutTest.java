@@ -109,6 +109,11 @@ class OreSpawnScreenLayoutTest {
 		assertTrue(list.contains("compactFilterWidth"));
 		assertTrue(list.contains("button.orespawn.ore_source.accept"));
 		assertTrue(list.contains("acceptOreSourcePolicy(group.key)"));
+		assertTrue(list.contains("button.orespawn.ore_source.reset_all"));
+		assertTrue(list.contains("button.orespawn.ore_source.confirm_reset_all"));
+		assertTrue(list.contains("session.resetOreSourcesToDefaults()"));
+		assertTrue(list.contains("leftPaneX, height - 28"));
+		assertTrue(list.contains("rightPaneX + rightPaneWidth - doneWidth, height - 28"));
 		assertEquals(58, OreSourceListScreen.compactFilterWidth(110, 48));
 		assertTrue(list.contains("groupRowColor"));
 		assertTrue(list.contains("drawCompactCog"));

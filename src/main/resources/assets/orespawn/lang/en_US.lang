@@ -467,3 +467,6 @@ tooltip.orespawn.ore_source.placement_select=Click to choose between active mana
 tooltip.orespawn.ore_source.external_excluded=Independent external generators are reported but cannot be selected as placement rules.
 button.orespawn.ore_source.hide_single=Hide Singles
 tooltip.orespawn.ore_source.group_colours=Green entries have one alias and one output and need no action. Yellow groups have a saved rule. Red groups need attention. Show All includes green entries.
+button.orespawn.ore_source.reset_all=Reset All
+button.orespawn.ore_source.confirm_reset_all=Confirm Reset
+tooltip.orespawn.ore_source.reset_all=Restore built-in material groups and recreate source policies from the currently loaded ores. The change remains pending until the main editor's Done button is used.
