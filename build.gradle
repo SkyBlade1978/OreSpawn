@@ -399,6 +399,9 @@ task surfaceIntegrationTest(dependsOn: surfaceIntegrationReloadProcess) {
         if (result.getProperty('ore_sources_reset_verified') != 'true') {
             throw new GradleException("Ore-source editor/profile/generation integration was not verified: ${marker}")
         }
+		if (result.getProperty('biome_override_verified') != 'true') {
+			throw new GradleException("Biome editor/profile/new-terrain integration was not verified: ${marker}")
+		}
         if (!(result.getProperty('dynamic_fluid_placements') ?: '0').isInteger()
                 || result.getProperty('dynamic_fluid_placements').toInteger() <= 0) {
             throw new GradleException("Dynamic fluid-deposit probe did not place any blocks: ${marker}")

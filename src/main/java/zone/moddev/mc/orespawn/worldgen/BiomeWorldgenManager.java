@@ -115,7 +115,7 @@ final class BiomeWorldgenManager {
 		return new BakedBiomeWorldgen(palettes, surfaces, materials);
 	}
 
-	private static List<Palette> bakePalettes(JsonObject root,
+	static List<Palette> bakePalettes(JsonObject root,
 			ResourceLocation dimension, Map<Biome, Surface> surfaces) {
 		JsonObject section = object(root, "biome_palettes");
 		List<Palette> result = new ArrayList<>();

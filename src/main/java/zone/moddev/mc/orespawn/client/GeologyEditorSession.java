@@ -72,8 +72,13 @@ final class GeologyEditorSession {
 	}
 
 	GeologyEditorSession(WorldGeologyProfile profile, Iterable<String> dimensions) {
+		this(profile, dimensions, WorldgenIntegrationManager.biomeProviderDefaults());
+	}
+
+	GeologyEditorSession(WorldGeologyProfile profile, Iterable<String> dimensions,
+			BiomeProviderDefaultsSnapshot defaults) {
 		originalProfile = profile;
-		biomeProviderDefaults = WorldgenIntegrationManager.biomeProviderDefaults();
+		biomeProviderDefaults = defaults;
 		original = profile.rootCopy();
 		root = profile.rootCopy();
 		normalizeRegistrySections(original);
