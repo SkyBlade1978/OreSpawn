@@ -38,6 +38,7 @@ import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraftforge.fluids.IFluidBlock;
+import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
 /** Mutable client-side copy used until the Create World settings are accepted. */
@@ -2186,9 +2187,9 @@ final class GeologyEditorSession {
 		return block != null && block != Blocks.AIR && isFluidBlock(block);
 	}
 
-	private static boolean isFluidBlock(Block block) {
+	static boolean isFluidBlock(Block block) {
 		return block instanceof BlockLiquid || block instanceof IFluidBlock
-				|| block.getDefaultState().getMaterial().isLiquid();
+				|| FluidRegistry.lookupFluidForBlock(block) != null;
 	}
 
 	private static boolean validResource(String id) {

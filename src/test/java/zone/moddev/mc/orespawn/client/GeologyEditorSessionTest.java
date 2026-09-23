@@ -17,6 +17,8 @@ import com.google.gson.JsonPrimitive;
 import zone.moddev.mc.orespawn.worldgen.WorldGeologyProfile;
 import zone.moddev.mc.orespawn.integration.WorldgenIntegrationManager.BiomeProviderDefaultsSnapshot;
 
+import net.minecraft.block.Block;
+import net.minecraft.block.material.Material;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.oredict.OreDictionary;
@@ -164,6 +166,14 @@ class GeologyEditorSessionTest {
 		assertEquals(1, session.section("fluid_deposits").entrySet().size());
 		java.util.List<String> errors = session.validate();
 		assertTrue(errors.isEmpty(), errors.toString());
+	}
+
+	@Test
+	void fluidPickerRejectsDecorativeBlocksThatOnlyUseWaterMaterial() {
+		Block decorativeWaterBlock = new Block(Material.WATER) { };
+
+		assertFalse(GeologyEditorSession.isFluidBlock(decorativeWaterBlock));
+		assertTrue(GeologyEditorSession.isFluidBlock(Blocks.WATER));
 	}
 
 	@Test
