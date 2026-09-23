@@ -267,7 +267,8 @@ public final class SurfaceProbeTestMod {
 		surfaceB.get().theBiomeDecorator = new ProbeDecorator();
 		BiomeDictionary.registerBiomeType(surfaceA.get(), BiomeDictionary.Type.HOT, BiomeDictionary.Type.DRY);
 		BiomeDictionary.registerBiomeType(surfaceB.get(), BiomeDictionary.Type.HOT, BiomeDictionary.Type.WET);
-		BiomeDictionary.registerBiomeType(unmanaged.get(), BiomeDictionary.Type.PLAINS);
+		// This fixture is the unmanaged entry for the End directory exercised below.
+		BiomeDictionary.registerBiomeType(unmanaged.get(), BiomeDictionary.Type.END);
 	}
 
 	@SubscribeEvent

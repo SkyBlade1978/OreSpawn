@@ -144,14 +144,24 @@ in base terrain are eligible for geology; matching blocks authored later by
 structures or vegetation are not. Air, liquids, bedrock, and block-entity
 states remain protected even if a provider mistakenly lists their block IDs.
 
-Dimension materials support the ordinary aquifer fluid and replacements for
-vanilla snow and ice. Minecraft 1.10.2 has one exposed generator-fluid field,
-so `default_fluid` is fully supported. Later-format `deep_aquifer_fluid` and
-`deep_aquifer_max_y` values remain readable and are preserved in saved profiles,
-but this branch disables their editor controls, warns when a distinct deep
-fluid was requested, and uses the ordinary fluid for generation. OreSpawn converts
-weather products in loaded chunks and around players; it does not replace every
-water or lava block after generation.
+Dimension materials apply to every biome in one dimension and only to newly
+generated terrain. They support the ordinary aquifer fluid and replacements
+for vanilla snow and ice. For a fluid with the same opacity and emitted light
+as the native generator fluid, OreSpawn records only native aquifer cells while
+the chunk is being built, lets Minecraft generate and light the terrain with
+its native fluid, then substitutes exactly those cells before decoration. This
+does not touch later lakes, springs or decorator fluids and creates no reload
+retrogen. A fluid with different lighting uses the compatible direct-generator
+path so its light remains correct; that path can be slower.
+
+Minecraft 1.10.2 has one exposed generator-fluid field, so `default_fluid` is
+fully supported. Later-format `deep_aquifer_fluid` and
+`deep_aquifer_max_y` values remain readable and are preserved in saved
+profiles, but this branch disables their editor controls, warns when a distinct
+deep fluid was requested, and uses the ordinary fluid for generation. OreSpawn
+converts weather products in loaded chunks and around players; it does not
+replace every water or lava block after generation. Unsupported independent
+chunk generators are reported and left unchanged.
 
 ## Templates And Total Conversions
 
@@ -182,7 +192,10 @@ sizes it keeps a compact biome list and the selected biome's details together;
 at the minimum supported width it uses list and detail pages without losing the
 selection or pending edits. The default list contains provider-managed,
 modified, disabled and missing entries. **Show All** also displays routine
-registered biomes which OreSpawn does not otherwise manage.
+registered biomes associated with the selected dimension. OreSpawn uses Forge's
+Nether/End biome types for ordinary loaded entries and exact provider placement
+declarations when they exist. Explicit replacements and missing entries remain
+visible in their configured dimension.
 
 The detail pane reports the friendly name, registry ID, mod owner, status and
 effective placement-rule count. Every profile palette is shown in its stored
@@ -195,8 +208,9 @@ the profile.
 
 **Leave original behaviour** makes no exact replacement. **Replace in new
 terrain with...** accepts any loaded source and target biome, including an
-external biome, but warns when the target was not declared by a provider for
-that dimension. OreSpawn stores these choices in the reserved
+external biome. Provider ownership remains available in the biome details but
+does not produce a warning for a valid replacement. OreSpawn stores these
+choices in the reserved
 `orespawn:ui/biome_overrides/<dimension>` palette. It is a 100% `replace/all`
 palette with zero fallback and always bakes after every ordinary palette,
 regardless of JSON insertion order. Each source has one terminal target;

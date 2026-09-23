@@ -18,12 +18,17 @@ import zone.moddev.mc.orespawn.util.JsonCopies;
 
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.biome.Biome;
+import net.minecraftforge.common.BiomeDictionary;
 import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.ModContainer;
 import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
 /** Immutable projection of loaded biomes, profile palettes, and provider defaults. */
 final class BiomeDirectoryModel {
+	private static final String OVERWORLD = "minecraft:overworld";
+	private static final String NETHER = "minecraft:the_nether";
+	private static final String END = "minecraft:the_end";
+
 	private BiomeDirectoryModel() { }
 
 	static Snapshot snapshot(JsonObject profile, BiomeProviderDefaultsSnapshot defaults,
@@ -38,7 +43,7 @@ final class BiomeDirectoryModel {
 			ModInfo owner = mods.get(entry.getKey().getResourceDomain());
 			loaded.add(new LoadedBiome(entry.getKey().toString(), entry.getValue().getBiomeName(),
 					owner == null ? entry.getKey().getResourceDomain() : owner.name,
-					owner == null ? "?" : owner.version));
+					owner == null ? "?" : owner.version, routineDimension(entry.getValue())));
 		}
 		return assemble(profile, defaults.biomePalettesCopy(),
 				defaults.activeProviderIds(), loaded, dimensions);
@@ -67,12 +72,19 @@ final class BiomeDirectoryModel {
 		}
 
 		Map<String, Set<String>> providerBiomes = providerBiomes(providerPalettes);
+		Map<String, Set<String>> declaredDimensions = declaredDimensions(palettes, providerBiomes);
 		List<BiomeEntry> entries = new ArrayList<>();
 		for (String dimension : dimensions) {
 			Map<String, List<Placement>> placements = placements(palettes, dimension);
 			Map<String, String> replacements = BiomeReplacementRules.read(profile, dimension);
-			Set<String> ids = new LinkedHashSet<>(loaded.keySet());
+			Set<String> ids = new LinkedHashSet<>();
+			for (LoadedBiome biome : loaded.values()) {
+				Set<String> declared = declaredDimensions.getOrDefault(biome.id, Collections.emptySet());
+				if (declared.isEmpty() ? dimension.equals(biome.routineDimension)
+						: declared.contains(dimension)) ids.add(biome.id);
+			}
 			ids.addAll(placements.keySet());
+			ids.addAll(providerBiomes.getOrDefault(dimension, Collections.emptySet()));
 			ids.addAll(replacements.keySet());
 			ids.addAll(replacements.values());
 			for (String id : ids) {
@@ -106,6 +118,29 @@ final class BiomeDirectoryModel {
 		entries.sort(entryOrder);
 		palettes.sort(Comparator.comparingInt(palette -> palette.order));
 		return new Snapshot(entries, palettes, dimensions, activeProviders);
+	}
+
+	static String routineDimension(Biome biome) {
+		if (BiomeDictionary.isBiomeOfType(biome, BiomeDictionary.Type.NETHER)) return NETHER;
+		if (BiomeDictionary.isBiomeOfType(biome, BiomeDictionary.Type.END)) return END;
+		return OVERWORLD;
+	}
+
+	private static Map<String, Set<String>> declaredDimensions(List<Palette> palettes,
+			Map<String, Set<String>> providerBiomes) {
+		Map<String, Set<String>> result = new LinkedHashMap<>();
+		for (Palette palette : palettes) {
+			if (palette.override) continue;
+			for (String id : JsonCopies.keys(object(palette.definition, "biomes"))) {
+				result.computeIfAbsent(id, ignored -> new LinkedHashSet<>()).add(palette.dimension);
+			}
+		}
+		for (Entry<String, Set<String>> dimension : providerBiomes.entrySet()) {
+			for (String id : dimension.getValue()) {
+				result.computeIfAbsent(id, ignored -> new LinkedHashSet<>()).add(dimension.getKey());
+			}
+		}
+		return result;
 	}
 
 	private static Map<String, Set<String>> providerBiomes(JsonObject providerPalettes) {
@@ -215,9 +250,14 @@ final class BiomeDirectoryModel {
 	}
 
 	static final class LoadedBiome {
-		final String id, name, ownerName, ownerVersion;
+		final String id, name, ownerName, ownerVersion, routineDimension;
 		LoadedBiome(String id, String name, String ownerName, String ownerVersion) {
+			this(id, name, ownerName, ownerVersion, OVERWORLD);
+		}
+		LoadedBiome(String id, String name, String ownerName, String ownerVersion,
+				String routineDimension) {
 			this.id = id; this.name = name; this.ownerName = ownerName; this.ownerVersion = ownerVersion;
+			this.routineDimension = routineDimension;
 		}
 	}
 

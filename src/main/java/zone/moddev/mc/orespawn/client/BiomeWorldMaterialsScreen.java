@@ -35,6 +35,8 @@ final class BiomeWorldMaterialsScreen extends OreSpawnScreen {
 	private int detailX;
 	private int detailWidth;
 	private int detailRuleTop;
+	private int detailMessageTop;
+	private List<String> detailMessageLines = java.util.Collections.emptyList();
 
 	BiomeWorldMaterialsScreen(GuiScreen parent, GeologyEditorSession session) {
 		super(new TextComponentTranslation("screen.orespawn.biomes"));
@@ -64,8 +66,9 @@ final class BiomeWorldMaterialsScreen extends OreSpawnScreen {
 		int left = (width - contentWidth) / 2;
 		int leftWidth = compact ? contentWidth : leftPaneWidth(width);
 		int headerWidth = Math.max(76, Math.min(leftWidth - 74, 150));
-		addButton(OreSpawnScreenLayout.button(this, font, left, 24, headerWidth, 20,
-				new TextComponentString(dimension), button -> cycleDimension(snapshot)));
+		addButton(OreSpawnScreenLayout.explainedButton(this, font, left, 24, headerWidth, 20,
+				dimensionSelectorLabel(dimension), button -> cycleDimension(snapshot),
+				"tooltip.orespawn.biome.dimension"));
 		addButton(OreSpawnScreenLayout.button(this, font, left + leftWidth - 68, 24, 68, 20,
 				new TextComponentTranslation(showAll ? "button.orespawn.biome.hide_routine"
 						: "button.orespawn.show_all"), button -> {
@@ -83,11 +86,18 @@ final class BiomeWorldMaterialsScreen extends OreSpawnScreen {
 			@Override protected void onRowPressed(int index) {
 				selectedId = entries.get(index).id;
 				if (compact) compactDetail = true;
-				ruleScroll = 0; resetArmed = false; message = null; rebuild();
+				ruleScroll = 0; resetArmed = false; clearMessage(); rebuild();
 			}
 			@Override protected List<String> rowTooltip(int index) { return biomeTooltip(entries.get(index)); }
 		});
 		biomeList.setFirstIndex(biomeScroll);
+		addButton(OreSpawnScreenLayout.explainedButton(this, font, left,
+				materialsButtonY(height), leftWidth, 20,
+				new TextComponentTranslation("button.orespawn.dimension_materials_named",
+						dimensionName(dimension)),
+				button -> minecraft.displayGuiScreen(
+						new DimensionMaterialsScreen(this, session, dimension)),
+				"tooltip.orespawn.biome.dimension_materials"));
 		if (!compact) initDetail(snapshot, false);
 		addButton(new Button(width / 2 - 75, height - 28, 150, 20,
 				DialogTexts.GUI_DONE, button -> onClose()));
@@ -103,7 +113,7 @@ final class BiomeWorldMaterialsScreen extends OreSpawnScreen {
 		int paneWidth = compact ? contentWidth : contentWidth - leftWidth - 10;
 		detailX = x;
 		detailWidth = paneWidth;
-		int y = compact ? 34 : CONTENT_TOP;
+		int y = detailTop(compact);
 		if (compact) {
 			addButton(OreSpawnScreenLayout.button(this, font, contentLeft, 8, 48, 20,
 					new TextComponentTranslation("button.orespawn.back"), button -> {
@@ -120,12 +130,15 @@ final class BiomeWorldMaterialsScreen extends OreSpawnScreen {
 			addButton(OreSpawnScreenLayout.explainedButton(this, font, x, y + 59,
 					paneWidth, 20,
 					new TextComponentTranslation("button.orespawn.biome.leave_original"),
-					button -> { session.leaveBiomeOriginal(dimension, selected.id); message = null; rebuild(); },
+					button -> { session.leaveBiomeOriginal(dimension, selected.id); clearMessage(); rebuild(); },
 					"tooltip.orespawn.biome.no_retrogen"));
 		}
-		int ruleTop = y + (selected.replacementTarget == null ? 61 : 85);
+		detailMessageLines = wrapMessage(message, paneWidth - 6);
+		detailMessageTop = detailMessageTop(compact, selected.replacementTarget != null);
+		int ruleTop = detailRuleTop(compact, selected.replacementTarget != null,
+				detailMessageLines.size());
 		detailRuleTop = ruleTop;
-		int controlsTop = Math.max(ruleTop + 34, height - 76);
+		int controlsTop = controlsTop(height, ruleTop);
 		int ruleHeight = Math.max(16, controlsTop - ruleTop - 4);
 		List<Placement> placements = selected.placements;
 		ruleList = addButton(new CompactScrollList(this, x, ruleTop, paneWidth, ruleHeight) {
@@ -149,14 +162,11 @@ final class BiomeWorldMaterialsScreen extends OreSpawnScreen {
 				new TextComponentTranslation("button.orespawn.biome.palettes", snapshot.palettes(dimension).size()),
 				button -> minecraft.displayGuiScreen(new BiomePaletteScreen(this, session, dimension))));
 		addButton(OreSpawnScreenLayout.button(this, font, x + half + 4, controlsTop, half, 20,
-				new TextComponentTranslation("button.orespawn.dimension_materials"),
-				button -> minecraft.displayGuiScreen(new DimensionMaterialsScreen(this, session, dimension))));
-		addButton(OreSpawnScreenLayout.button(this, font, x, controlsTop + 24, half, 20,
-				new TextComponentTranslation("button.orespawn.geome_influences"),
-				button -> minecraft.displayGuiScreen(new GeomeBiomeScreen(this, session))));
-		addButton(OreSpawnScreenLayout.button(this, font, x + half + 4, controlsTop + 24, half, 20,
 				new TextComponentTranslation(resetArmed ? "button.orespawn.biome.confirm_reset"
 						: "button.orespawn.biome.reset_selected"), button -> resetSelected(selected)));
+		addButton(OreSpawnScreenLayout.button(this, font, x, controlsTop + 24, paneWidth, 20,
+				new TextComponentTranslation("button.orespawn.geome_influences"),
+				button -> minecraft.displayGuiScreen(new GeomeBiomeScreen(this, session))));
 	}
 
 	private void chooseReplacement(BiomeEntry selected) {
@@ -164,8 +174,7 @@ final class BiomeWorldMaterialsScreen extends OreSpawnScreen {
 		minecraft.displayGuiScreen(new BiomePickerScreen(this, session, target -> {
 			try {
 				session.replaceBiome(dimension, selected.id, target);
-				message = session.biomeTargetProviderDeclared(dimension, target) ? null
-						: I18n.format("warning.orespawn.biome.target_not_declared", target);
+				clearMessage();
 			} catch (IllegalArgumentException failure) {
 				message = failure.getMessage();
 			}
@@ -176,19 +185,52 @@ final class BiomeWorldMaterialsScreen extends OreSpawnScreen {
 	private void resetSelected(BiomeEntry selected) {
 		if (!resetArmed) { resetArmed = true; rebuild(); return; }
 		session.resetBiome(dimension, selected.id);
-		resetArmed = false; message = null; rebuild();
+		resetArmed = false; clearMessage(); rebuild();
 	}
 
 	private void cycleDimension(Snapshot snapshot) {
-		List<String> dimensions = new ArrayList<>(snapshot.dimensions);
-		int index = dimensions.indexOf(dimension);
-		dimension = dimensions.get((Math.max(0, index) + 1) % dimensions.size());
-		selectedId = null; compactDetail = false; biomeScroll = 0; ruleScroll = 0; rebuild();
+		dimension = nextDimension(snapshot.dimensions, dimension);
+		selectedId = null; compactDetail = false; biomeScroll = 0; ruleScroll = 0; clearMessage(); rebuild();
+	}
+
+	private void clearMessage() {
+		message = null;
+	}
+
+	private List<String> wrapMessage(String text, int maximumWidth) {
+		if (text == null || text.isEmpty()) return java.util.Collections.emptyList();
+		List<String> wrapped = font.listFormattedStringToWidth(text, Math.max(40, maximumWidth));
+		if (wrapped.size() <= 2) return wrapped;
+		List<String> result = new ArrayList<>(wrapped.subList(0, 2));
+		result.set(1, OreSpawnScreenLayout.fit(font,
+				new TextComponentString(result.get(1) + "..."), Math.max(40, maximumWidth)));
+		return result;
+	}
+
+	static String nextDimension(Iterable<String> available, String current) {
+		List<String> dimensions = new ArrayList<>();
+		for (String candidate : available) dimensions.add(candidate);
+		if (dimensions.isEmpty()) return "minecraft:overworld";
+		int index = dimensions.indexOf(current);
+		return dimensions.get((Math.max(-1, index) + 1) % dimensions.size());
 	}
 
 	private static BiomeEntry find(List<BiomeEntry> entries, String id) {
 		if (id != null) for (BiomeEntry entry : entries) if (id.equals(entry.id)) return entry;
 		return null;
+	}
+
+	static ITextComponent dimensionName(String dimension) {
+		switch (dimension) {
+		case "minecraft:overworld": return new TextComponentTranslation("value.orespawn.dimension.overworld");
+		case "minecraft:the_nether": return new TextComponentTranslation("value.orespawn.dimension.the_nether");
+		case "minecraft:the_end": return new TextComponentTranslation("value.orespawn.dimension.the_end");
+		default: return new TextComponentString(dimension);
+		}
+	}
+
+	private static ITextComponent dimensionSelectorLabel(String dimension) {
+		return new TextComponentString("< " + dimensionName(dimension).getUnformattedText() + " >");
 	}
 
 	private static String statusMarker(Status status) {
@@ -261,26 +303,41 @@ final class BiomeWorldMaterialsScreen extends OreSpawnScreen {
 			int contentWidth = contentWidth(width);
 			int x = width < TWO_PANE_MINIMUM ? (width - contentWidth) / 2
 					: (width - contentWidth) / 2 + leftPaneWidth(width) + 10;
-			int y = width < TWO_PANE_MINIMUM ? 34 : CONTENT_TOP;
+			int y = detailTop(width < TWO_PANE_MINIMUM);
 			drawString(font, new TextComponentString(selected.name), x + 3, y, 0xFFFFFF);
 			drawString(font, new TextComponentString(selected.id), x + 3, y + 11, 0xAAAAAA);
 				drawString(font, new TextComponentTranslation("value.orespawn.biome.status."
 					+ selected.status.name().toLowerCase(java.util.Locale.ROOT)), x + 3, y + 22,
 					statusColor(selected.status));
-			if (selected.replacementTarget != null) {
-				String notice = I18n.format("label.orespawn.biome.new_terrain_only");
-				drawString(font, new TextComponentString(notice),
-						detailX + detailWidth - font.getStringWidth(notice) - 3, y + 22, 0xFFFF55);
+			for (int line = 0; line < detailMessageLines.size(); line++) {
+				drawString(font, new TextComponentString(detailMessageLines.get(line)),
+					detailX + 3, detailMessageTop + (line * 10), 0xFF5555);
 			}
 			drawString(font, new TextComponentTranslation("label.orespawn.biome.placement_rules"),
 					detailX + 3, detailRuleTop - 10, 0xCCCCCC);
 		}
-		if (message != null) drawCenteredString(font, new TextComponentString(message), width / 2, height - 39, 0xFF5555);
 		super.render(mouseX, mouseY, partialTick);
 		OreSpawnScreenLayout.renderExplanations(this, mouseX, mouseY);
 	}
 
 	static int contentWidth(int width) { return Math.min(520, Math.max(300, width - 20)); }
 	static int leftPaneWidth(int width) { return Math.max(132, (contentWidth(width) * 43) / 100); }
-	static int listHeight(int height) { return Math.max(32, height - CONTENT_TOP - 36); }
+	static int listHeight(int height) { return Math.max(32, materialsButtonY(height) - CONTENT_TOP - 4); }
+	static int materialsButtonY(int height) { return height - 52; }
+	static int detailTop(boolean compact) { return compact ? 34 : 24; }
+	static int detailRuleTop(boolean compact, boolean hasReplacement) {
+		return detailTop(compact) + (hasReplacement ? 95 : 71);
+	}
+
+	static int detailMessageTop(boolean compact, boolean hasReplacement) {
+		return detailRuleTop(compact, hasReplacement) - 12;
+	}
+
+	static int detailRuleTop(boolean compact, boolean hasReplacement, int messageLines) {
+		return detailRuleTop(compact, hasReplacement) + (Math.max(0, Math.min(2, messageLines)) * 10);
+	}
+
+	static int controlsTop(int height, int ruleTop) {
+		return Math.max(ruleTop + 34, height - 76);
+	}
 }

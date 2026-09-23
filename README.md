@@ -93,8 +93,15 @@ management is off, with a prompt to enable it first.
 
 **Biomes** opens a directory rather than editing only the first palette. It
 shows every provider/profile palette in its stored order, the effective surface
-rule, owner, climate constraints, dimension materials and geome influences.
-Routine unmanaged biomes are hidden behind **Show All**. A loaded biome may be
+rule, owner, climate constraints and geome influences. Dimension materials sit
+beside the dimension selector because they apply to every biome in that
+dimension's newly generated terrain, not to the selected biome. Light-equivalent
+aquifer fluids use a provenance mask and fast pre-decoration substitution;
+unusual fluids with different lighting retain a compatible, potentially slower
+generator path.
+Routine unmanaged biomes are hidden behind **Show All**, which remains filtered
+to the selected dimension using Forge's Nether/End biome types and explicit
+provider placement declarations. A loaded biome may be
 left unchanged or replaced exactly in newly generated terrain; missing targets
 remain dormant and resume if their mod returns. The final user replacement
 layer always runs after ordinary palettes, while existing chunks are never

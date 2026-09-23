@@ -1,12 +1,19 @@
 Version 4.1.0.110021
 
+* Clarify dimension-wide material controls and replace light-equivalent custom
+  aquifer-fluid injection with an exact one-shot generation mask, preserving
+  surfaces, caves and later decorator fluids while keeping generation near the
+  native path. Differently lit fluids retain the compatible generator path.
 * Replace the first-palette-only biome editor with a responsive biome directory
   that reports every loaded, referenced and missing biome once, together with
   palette ownership, effective order, placement count and surface conflicts.
+  Its dimension selector filters routine entries through Forge biome domains
+  while retaining explicit placement, replacement and missing-provider rules.
 * Add exact one-to-one biome replacements for newly generated terrain through a
   reserved terminal palette which always runs after ordinary provider/profile
   palettes. Replacement chains flatten, cycles are rejected and missing targets
-  remain dormant until their owning mod returns.
+  remain dormant until their owning mod returns. Valid unmanaged targets no
+  longer produce a misleading warning or duplicate new-terrain notice.
 * Expose palette enablement, placement weights, climate and dependency limits,
   surfaces, namespace scope, region size, coverage, fallback weight, dimension
   materials and geome influences without adding arbitrary weighted biome output.

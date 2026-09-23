@@ -764,7 +764,7 @@ if (project.hasProperty('benchmarkRunDir')) {
             benchmarkRunDirectory.mkdirs()
             new File(benchmarkRunDirectory, 'eula.txt').setText('eula=true\n', 'UTF-8')
             new File(benchmarkRunDirectory, 'server.properties').setText(
-                    'online-mode=false\nlevel-name=world\nlevel-type=default\n' +
+                    "online-mode=false\nlevel-name=world\nlevel-type=${project.findProperty('benchmarkLevelType') ?: 'default'}\n" +
                     "level-seed=${project.findProperty('benchmarkSeed') ?: '-4965128775892001975'}\n" +
                     'generate-structures=false\nspawn-animals=false\nspawn-monsters=false\n' +
                     'max-tick-time=-1\n', 'UTF-8')
@@ -786,6 +786,14 @@ task benchmarkIntegrationProcess(type: JavaExec, dependsOn: prepareWorldgenBench
                 project.findProperty('benchmarkOreAudit') ?: 'false'
         if (project.hasProperty('benchmarkBlockAudit')) {
             systemProperty 'orespawn.worldgenBenchmarkBlockAudit', project.property('benchmarkBlockAudit')
+        }
+        ['benchmarkBiomeType': 'orespawn.worldgenBenchmarkBiomeType',
+         'benchmarkBiome': 'orespawn.worldgenBenchmarkBiome',
+         'benchmarkNormalizeBlock': 'orespawn.worldgenBenchmarkNormalizeBlock',
+         'benchmarkNormalizeBiome': 'orespawn.worldgenBenchmarkNormalizeBiome'].each { propertyName, systemName ->
+            if (project.hasProperty(propertyName)) {
+                systemProperty systemName, project.property(propertyName)
+            }
         }
         configureFromForgeRun(delegate, 'runServer')
         doLast {

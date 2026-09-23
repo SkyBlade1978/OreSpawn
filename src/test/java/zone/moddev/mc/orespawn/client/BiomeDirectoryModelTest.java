@@ -1,6 +1,7 @@
 package zone.moddev.mc.orespawn.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -8,12 +9,28 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import zone.moddev.mc.orespawn.test.Forge12TestBootstrap;
+
+import net.minecraft.init.Biomes;
 
 class BiomeDirectoryModelTest {
+	@BeforeAll
+	static void registerVanilla() {
+		Forge12TestBootstrap.registerVanilla();
+	}
+
+	@Test
+	void derivesVanillaRoutineDimensionsFromForgeBiomeTypes() {
+		assertEquals("minecraft:overworld", BiomeDirectoryModel.routineDimension(Biomes.BEACH));
+		assertEquals("minecraft:the_nether", BiomeDirectoryModel.routineDimension(Biomes.HELL));
+		assertEquals("minecraft:the_end", BiomeDirectoryModel.routineDimension(Biomes.SKY));
+	}
+
 	@Test
 	void classifiesManagedLayeredDisabledReplacedUnmanagedAndMissingBiomes() {
 		JsonObject profile = root();
@@ -77,12 +94,45 @@ class BiomeDirectoryModelTest {
 				.get("enabled").getAsBoolean());
 	}
 
+	@Test
+	void showAllFiltersRoutineBiomesByDimensionAndRetainsExplicitPlacements() {
+		JsonObject profile = root();
+		addPalette(profile, "provider:nether", true, "example:declared_nether");
+		profile.getAsJsonObject("biome_palettes").getAsJsonObject("provider:nether")
+				.addProperty("dimension", "minecraft:the_nether");
+		BiomeDirectoryModel.Snapshot snapshot = BiomeDirectoryModel.assemble(profile,
+				new JsonObject(), Collections.singleton("provider"), Arrays.asList(
+						loaded("minecraft:beaches", "Beach", "minecraft:overworld"),
+						loaded("minecraft:hell", "Hell", "minecraft:the_nether"),
+						loaded("minecraft:sky", "The End", "minecraft:the_end"),
+						loaded("example:declared_nether", "Declared Nether", "minecraft:overworld")),
+				Arrays.asList("minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"));
+
+		assertTrue(contains(snapshot, "minecraft:overworld", "minecraft:beaches"));
+		assertFalse(contains(snapshot, "minecraft:overworld", "minecraft:hell"));
+		assertFalse(contains(snapshot, "minecraft:overworld", "minecraft:sky"));
+		assertFalse(contains(snapshot, "minecraft:overworld", "example:declared_nether"));
+		assertTrue(contains(snapshot, "minecraft:the_nether", "minecraft:hell"));
+		assertTrue(contains(snapshot, "minecraft:the_nether", "example:declared_nether"));
+		assertFalse(contains(snapshot, "minecraft:the_nether", "minecraft:beaches"));
+		assertTrue(contains(snapshot, "minecraft:the_end", "minecraft:sky"));
+		assertFalse(contains(snapshot, "minecraft:the_end", "minecraft:beaches"));
+	}
+
 	private static BiomeDirectoryModel.BiomeEntry find(BiomeDirectoryModel.Snapshot snapshot, String id) {
 		return snapshot.entries.stream().filter(entry -> id.equals(entry.id)).findFirst().orElseThrow(AssertionError::new);
 	}
 
 	private static BiomeDirectoryModel.LoadedBiome loaded(String id, String name) {
 		return new BiomeDirectoryModel.LoadedBiome(id, name, "Example", "1");
+	}
+
+	private static BiomeDirectoryModel.LoadedBiome loaded(String id, String name, String dimension) {
+		return new BiomeDirectoryModel.LoadedBiome(id, name, "Example", "1", dimension);
+	}
+
+	private static boolean contains(BiomeDirectoryModel.Snapshot snapshot, String dimension, String id) {
+		return snapshot.entries(dimension, true).stream().anyMatch(entry -> id.equals(entry.id));
 	}
 
 	private static JsonObject root() {
