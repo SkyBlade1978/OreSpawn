@@ -1,3 +1,14 @@
+Version 4.2.0.121012 (in development)
+
+* Add deposit-controlled background ore generation and a provider option to
+  keep newly introduced definitions out of existing worlds.
+* Keep ordinary and custom placement channels independent, including saved
+  imported rules. Preserve existing defaults when no controller is configured.
+* Reject invalid host weights without leaving an accidental host selected.
+* Let NeoForge choose the correct resource and data pack formats, keep biome
+  status colors opaque, and refresh checksums when any release jar changes.
+* Retain extended-height geology, saved ranges and existing-chunk protection.
+
 Version 4.1.1.121012
 
 * Use each dimension's actual height for rock strata, including deeper and

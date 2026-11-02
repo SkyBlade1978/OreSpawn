@@ -15,6 +15,8 @@ and Java defaults in one place. The smaller scripts below own the longer checks:
   official NeoForge installation; every dedicated-server command ends in `nogui`.
 - `verification/native-ores.gradle` checks native and imported Nether ores,
   vanilla-management OFF/ON, fluid hosts, exact reload and new-terrain edits.
+- `verification/deposit-extensions.gradle` checks background controls, provider
+  merge preferences and read-only sampling in an installed server.
 - `release/artifacts.gradle` checks the three release jars, bundled guide,
   metadata and checksums.
 - `release/publishing.gradle` holds the opt-in Maven publication and credential
@@ -47,6 +49,10 @@ Run `nativeOreIntegrationTest` with
 `-PpackagedNeoForgeServerRuntime=<official NeoForge 21.1.247 server installation>`.
 It creates its own build-owned worlds and runs the ordinary release jar. None
 of the fixture classes or resources belongs in a release artifact.
+
+`depositExtensionIntegrationTest` takes the same official-runtime property and
+uses its own disposable save. It checks a new world, an opted-out provider
+update, then an opted-in update without changing saved edits or existing chunks.
 
 When adding a task, put it next to the checks it supports and keep any shared
 helper in the small `oreSpawnBuild` map in the root build. Test-only source sets

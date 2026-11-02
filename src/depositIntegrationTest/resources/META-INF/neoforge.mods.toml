@@ -1,0 +1,14 @@
+modLoader="javafml"
+loaderVersion="[3,)"
+license="LGPL-2.1"
+[[mods]]
+modId="depositprobe"
+version="1"
+displayName="OreSpawn Deposit Extension Probe"
+description='''Test-only deposit and saved-provider checks.'''
+[[dependencies.depositprobe]]
+modId="orespawn"
+type="required"
+versionRange="[4.1.1,5.0.0)"
+ordering="AFTER"
+side="BOTH"

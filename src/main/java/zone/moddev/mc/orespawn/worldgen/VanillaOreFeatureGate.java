@@ -212,8 +212,8 @@ public final class VanillaOreFeatureGate {
 			if (WorldGeologyProfileManager.activeProfile().suppressAllOreFeatures()) {
 				return false;
 			}
-			if (OreSpawnOreGeneration.takesOverVanillaOre(
-					context.level().getLevel().dimension(), output)) {
+			if (!OreSpawnOreGeneration.allowsVanillaOre(context.level().getLevel().dimension(), output,
+					context.level().getSeed(), context.origin().getX() >> 4, context.origin().getZ() >> 4)) {
 				return false;
 			}
 			return original.value().place(context.level(), context.chunkGenerator(),
@@ -245,8 +245,8 @@ public final class VanillaOreFeatureGate {
 			WorldGeologyProfileManager.resolveFreshPoliciesBeforeGeneration();
 			if (WorldGeologyProfileManager.activeProfile().suppressAllOreFeatures()) return false;
 			Block output = context.config().nativeOutput;
-			if (output != null && OreSpawnOreGeneration.takesOverVanillaOre(
-					context.level().getLevel().dimension(), output)) return false;
+			if (output != null && !OreSpawnOreGeneration.allowsVanillaOre(context.level().getLevel().dimension(), output,
+					context.level().getSeed(), context.origin().getX() >> 4, context.origin().getZ() >> 4)) return false;
 			return context.config().delegate.value().place(context.level(), context.chunkGenerator(),
 					context.random(), context.origin());
 		}

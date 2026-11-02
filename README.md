@@ -107,10 +107,12 @@ exported to `config/orespawn-guide/` without overwriting existing files.
 
 ## Building
 
-This branch builds target-qualified version `4.1.1.121012`: the OreSpawn 4.1
-feature set for Minecraft 1.21.1 and NeoForge.
+This branch is preparing `4.2.0.121012` for Minecraft 1.21.1 and NeoForge.
+It combines the existing 4.1 features and extended-height repair with deposit
+background controls, provider upgrade options and build fixes. Further 4.2
+features will be added here before release.
 
-OreSpawn 4.1.1.121012 uses NeoGradle 7.1.38 and Gradle 9.2.1. Use exact
+OreSpawn 4.2.0.121012 uses NeoGradle 7.1.38 and Gradle 9.2.1. Use exact
 Temurin 21.0.7+6 from the repository root:
 
 ```powershell
@@ -135,7 +137,7 @@ Use `runClient` or `runTestOreSourcesClient` from Eclipse's Gradle Tasks view.
 NeoGradle does not need ForgeGradle's `genEclipseRuns` task or standalone
 `.launch` files.
 
-The audited public outputs are `OreSpawn-4.1.1.121012.jar`, its sources jar,
+The candidate outputs are `OreSpawn-4.2.0.121012.jar`, its sources jar,
 and its Javadoc jar. CI additionally proves a cache-cold NeoGradle bootstrap
 and a same-cache offline rerun.
 

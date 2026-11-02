@@ -50,7 +50,7 @@ tasks.named('assemble') {
 tasks.register('verifyReleaseConfiguration') {
     group = 'verification'
     doLast {
-        if (project.mod_version != '4.1.1.121012'
+        if (project.mod_version != '4.2.0.121012'
                 || project.mod_group_id != expectedMavenGroup
                 || project.minecraft_version != '1.21.1'
                 || project.neo_version != '21.1.247') {
@@ -63,9 +63,9 @@ tasks.register('verifyReleaseConfiguration') {
             throw new GradleException('Unexpected dispatcher or Java target metadata')
         }
         List<String> expectedPublicArtifacts = [
-                'OreSpawn-4.1.1.121012.jar',
-                'OreSpawn-4.1.1.121012-sources.jar',
-                'OreSpawn-4.1.1.121012-javadoc.jar'
+                'OreSpawn-4.2.0.121012.jar',
+                'OreSpawn-4.2.0.121012-sources.jar',
+                'OreSpawn-4.2.0.121012-javadoc.jar'
         ]
         if (base.archivesName.get() != expectedMavenArtifact
                 || expectedReleaseFiles.get().collect { it.toString() } != expectedPublicArtifacts) {
@@ -181,6 +181,7 @@ tasks.register('verifyReleaseArtifacts') {
                 [
                         'src/test/', 'src/biomeIntegrationTest/', 'src/clientIntegrationTest/',
                         'src/benchmarkIntegrationTest/', 'src/nativeOreIntegrationTest/',
+                        'src/depositIntegrationTest/', 'depositprobe',
                         'nativeoreprobe', 'agent-notes/', 'surfaceprobe',
                         'clientprobe', 'benchmarkprobe', 'worldhashprobe',
                         'src/worldHashTest/', 'oresource-minerals',
@@ -273,6 +274,9 @@ tasks.register('verifyReleaseArtifacts') {
 tasks.register('writeReleaseChecksums') {
     group = 'verification'
     dependsOn tasks.named('verifyReleaseArtifacts')
+    inputs.files(releaseJar.flatMap { it.archiveFile },
+            tasks.named('sourcesJar', Jar).flatMap { it.archiveFile },
+            tasks.named('javadocJar', Jar).flatMap { it.archiveFile })
     def outputFile = layout.buildDirectory.file('release/SHA256SUMS')
     outputs.file outputFile
     doLast {

@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -48,6 +49,12 @@ public final class WorldgenProvider {
 		return revision;
 	}
 
+	/** Whether newly introduced definitions may join an existing world's profile. */
+	public boolean mergeNewEntriesIntoExistingWorlds() {
+		return !definition.has("merge_new_entries_into_existing_worlds")
+				|| definition.get("merge_new_entries_into_existing_worlds").getAsBoolean();
+	}
+
 	/** Returns a defensive JSON representation matching provider schema 5. */
 	public JsonObject toJson() {
 		return definition.deepCopy();
@@ -56,6 +63,7 @@ public final class WorldgenProvider {
 	public static final class Builder {
 		private final String modId;
 		private final int revision;
+		private boolean mergeNewEntriesIntoExistingWorlds = true;
 		private final LinkedHashMap<ResourceLocation, RockDefinition> rocks = new LinkedHashMap<>();
 		private final LinkedHashMap<ResourceLocation, OreDefinition> ores = new LinkedHashMap<>();
 		private final LinkedHashMap<ResourceLocation, FluidDepositDefinition> fluidDeposits =
@@ -80,6 +88,12 @@ public final class WorldgenProvider {
 
 		public Builder rock(RockDefinition rock) {
 			putUnique(rocks, rock.id(), rock, "rock");
+			return this;
+		}
+
+		/** Keeps structural add-on defaults out of worlds created before those defaults existed. */
+		public Builder mergeNewEntriesIntoExistingWorlds(boolean value) {
+			mergeNewEntriesIntoExistingWorlds = value;
 			return this;
 		}
 
@@ -213,6 +227,9 @@ public final class WorldgenProvider {
 			root.addProperty("schema_version", 5);
 			root.addProperty("provider_modid", modId);
 			root.addProperty("provider_revision", revision);
+			if (!mergeNewEntriesIntoExistingWorlds) {
+				root.addProperty("merge_new_entries_into_existing_worlds", false);
+			}
 			root.add("rocks", object(rocks));
 			root.add("ores", object(ores));
 			root.add("fluid_deposits", object(fluidDeposits));
@@ -543,6 +560,7 @@ public final class WorldgenProvider {
 		private final Set<String> excludedBiomeDictionary;
 		private final Map<ResourceLocation, Double> hostBlockWeights;
 		private final Map<ResourceLocation, Double> hostTagWeights;
+		private final Double backgroundGenerationScale;
 
 		private OreDimensionDefinition(Builder builder) {
 			dimension = builder.dimension;
@@ -574,6 +592,7 @@ public final class WorldgenProvider {
 					new LinkedHashSet<>(builder.excludedBiomeDictionary));
 			hostBlockWeights = immutableMap(builder.hostBlockWeights);
 			hostTagWeights = immutableMap(builder.hostTagWeights);
+			backgroundGenerationScale = builder.backgroundGenerationScale;
 		}
 
 		public static Builder builder(ResourceLocation dimension) { return new Builder(dimension); }
@@ -606,6 +625,11 @@ public final class WorldgenProvider {
 		public Set<String> excludedBiomeDictionary() { return excludedBiomeDictionary; }
 		public Map<ResourceLocation, Double> hostBlockWeights() { return hostBlockWeights; }
 		public Map<ResourceLocation, Double> hostTagWeights() { return hostTagWeights; }
+		/** Scales ordinary background ore, not the deposit rule declaring the control. */
+		public OptionalDouble backgroundGenerationScale() {
+			return backgroundGenerationScale == null ? OptionalDouble.empty()
+					: OptionalDouble.of(backgroundGenerationScale);
+		}
 
 		@Override
 		public JsonObject toJson() {
@@ -640,6 +664,9 @@ public final class WorldgenProvider {
 			json.add("geomes", weights(geomes));
 			json.add("host_blocks", weightedIds(hostBlocks, hostBlockWeights, "block"));
 			json.add("host_tags", weightedIds(hostTags, hostTagWeights, "tag"));
+			if (backgroundGenerationScale != null) {
+				json.addProperty("background_generation_scale", backgroundGenerationScale);
+			}
 			json.add("biome_ids", ids(biomeIds));
 			json.add("excluded_biome_ids", ids(excludedBiomeIds));
 			json.add("biome_dictionary", strings(biomeDictionary));
@@ -674,6 +701,7 @@ public final class WorldgenProvider {
 			private final Set<String> excludedBiomeDictionary = new LinkedHashSet<>();
 			private final Map<ResourceLocation, Double> hostBlockWeights = new LinkedHashMap<>();
 			private final Map<ResourceLocation, Double> hostTagWeights = new LinkedHashMap<>();
+			private Double backgroundGenerationScale;
 
 			private Builder(ResourceLocation dimension) { this.dimension = Objects.requireNonNull(dimension, "dimension"); }
 			public Builder enabled(boolean value) { enabled = value; return this; }
@@ -706,6 +734,12 @@ public final class WorldgenProvider {
 			public Builder geomeWeight(ResourceLocation geome, double value) { geomes.put(geome, value); return this; }
 			public Builder hostBlock(ResourceLocation value) { hostBlocks.add(value); return this; }
 			public Builder hostTag(ResourceLocation value) { hostTags.add(value); return this; }
+
+			/** Sets 0..1 background generation for this resource; the controller stays unscaled. */
+			public Builder backgroundGenerationScale(double value) {
+				backgroundGenerationScale = value;
+				return this;
+			}
 			public Builder biome(ResourceLocation value) { biomeIds.add(value); return this; }
 			public Builder excludeBiome(ResourceLocation value) { excludedBiomeIds.add(value); return this; }
 			public Builder biomeDictionary(String value) { biomeDictionary.add(nonBlank(value)); return this; }
@@ -713,19 +747,24 @@ public final class WorldgenProvider {
 				excludedBiomeDictionary.add(nonBlank(value)); return this;
 			}
 			public Builder hostBlock(ResourceLocation value, double weight) {
+				double validatedWeight = replacementWeight(weight);
 				hostBlocks.add(value);
-				hostBlockWeights.put(value, replacementWeight(weight));
+				hostBlockWeights.put(value, validatedWeight);
 				return this;
 			}
 			public Builder hostTag(ResourceLocation value, double weight) {
+				double validatedWeight = replacementWeight(weight);
 				hostTags.add(value);
-				hostTagWeights.put(value, replacementWeight(weight));
+				hostTagWeights.put(value, validatedWeight);
 				return this;
 			}
 
 			public OreDimensionDefinition build() {
 				requireRange(minY, maxY, "ore Y range");
 				if (frequency < 0.0D || frequency > 64.0D
+						|| (backgroundGenerationScale != null
+								&& (!Double.isFinite(backgroundGenerationScale)
+									|| backgroundGenerationScale < 0.0D || backgroundGenerationScale > 1.0D))
 						|| minQuantity < 1 || minQuantity > maxQuantity || maxQuantity > 64
 						|| !Double.isFinite(discardChanceOnAirExposure)
 						|| discardChanceOnAirExposure < 0.0D || discardChanceOnAirExposure > 1.0D

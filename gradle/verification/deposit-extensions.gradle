@@ -1,0 +1,71 @@
+// Keep this probe outside source sets: it exercises the actual distributable jar.
+def shared = project.ext.oreSpawnBuild
+def runtime = providers.gradleProperty('packagedNeoForgeServerRuntime')
+def classes = layout.buildDirectory.dir('deposit-extension-fixture/classes')
+def compile = tasks.register('compileDepositExtensionProbe', JavaCompile) {
+    dependsOn tasks.named('classes')
+    source fileTree('src/depositIntegrationTest/java')
+    classpath = files(sourceSets.main.output, sourceSets.main.compileClasspath)
+    destinationDirectory = classes
+}
+def probe = tasks.register('depositExtensionProbeJar', Jar) {
+    dependsOn compile
+    archiveFileName = 'depositprobe.jar'
+    destinationDirectory = layout.buildDirectory.dir('deposit-extension-fixture')
+    from classes
+    from 'src/depositIntegrationTest/resources'
+}
+def runDirectory = file("${buildDir}/deposit-extension-run")
+def previous = tasks.register('prepareDepositExtensionProbe') {
+    dependsOn tasks.named('jar'), probe
+    doLast {
+        if (!runtime.isPresent()) throw new GradleException('Pass -PpackagedNeoForgeServerRuntime=<official NeoForge server installation>')
+        delete runDirectory
+        runDirectory.mkdirs()
+        shared.prepareTestNeoForgeConfig(runDirectory)
+        copy {
+            from tasks.named('jar').flatMap { it.archiveFile }, probe
+            into new File(runDirectory, 'mods')
+        }
+        new File(runDirectory, 'eula.txt').setText('eula=true\n', 'UTF-8')
+        new File(runDirectory, 'server.properties').setText('''\
+level-name=world
+level-seed=4192643144957839458
+online-mode=false
+server-port=0
+allow-nether=false
+generate-structures=false
+view-distance=2
+simulation-distance=2
+max-tick-time=-1
+''', 'UTF-8')
+    }
+}
+['Fresh', 'Reload', 'OptIn'].each { phase ->
+    def dependency = previous
+    previous = tasks.register("depositExtension${phase}", Exec) {
+        group = 'verification'
+        description = "Checks deposit extensions in an installed server (${phase.toLowerCase()})."
+        dependsOn dependency
+        doFirst {
+            workingDir runDirectory
+            commandLine shared.neoForgeServerCommand(file(runtime.get()), runDirectory,
+                    ['-XX:ActiveProcessorCount=2', '-Dio.netty.transport.noNative=true',
+                     "-Ddepositprobe.phase=${phase.toLowerCase()}"])
+        }
+        doLast {
+            def log = new File(runDirectory, 'logs/latest.log')
+            def marker = new File(runDirectory, "world/deposit-extension-${phase.toLowerCase()}.txt")
+            if (!marker.isFile() || marker.text != "verified ${phase.toLowerCase()}") {
+                throw new GradleException("Deposit ${phase} proof is missing")
+            }
+            shared.assertRuntimeLogsClean(runDirectory, "Deposit ${phase}", [] as Set)
+            copy { from log; into new File(runDirectory, 'audit-logs'); rename { "${phase.toLowerCase()}.log" } }
+        }
+    }
+}
+tasks.register('depositExtensionIntegrationTest') {
+    group = 'verification'
+    description = 'Checks deposit controls, save-safe provider updates and sampling without chunk loads.'
+    dependsOn previous
+}

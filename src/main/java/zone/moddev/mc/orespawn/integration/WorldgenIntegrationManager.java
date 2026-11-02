@@ -220,13 +220,24 @@ public final class WorldgenIntegrationManager {
 
 	/** Merge new provider-owned defaults without overwriting pack or world values. */
 	public static synchronized boolean mergeProviderDefinitions(JsonObject target) {
+		return mergeProviderDefinitions(target, false);
+	}
+
+	/** Existing worlds keep structural definitions from providers that opt out of new entries. */
+	public static synchronized boolean mergeProviderDefinitionsIntoExistingWorld(JsonObject target) {
+		return mergeProviderDefinitions(target, true);
+	}
+
+	private static boolean mergeProviderDefinitions(JsonObject target, boolean existingWorld) {
 		JsonObject manifests = object(target, "providers");
 		JsonObject legacyOreManifests = object(target, "ore_providers");
 		boolean changed = false;
 
 		for (ProviderDefinition provider : ACTIVE_PROVIDERS.values()) {
 			JsonObject manifest = object(manifests, provider.modId);
-			if (!bool(manifest, "profile_defaults_applied", false)
+			boolean mergeNewEntries = !existingWorld
+					|| bool(provider.root, "merge_new_entries_into_existing_worlds", true);
+			if (mergeNewEntries && !bool(manifest, "profile_defaults_applied", false)
 					&& provider.root.has("profile_defaults")
 					&& provider.root.get("profile_defaults").isJsonObject()) {
 				mergeOverlay(target, provider.root.getAsJsonObject("profile_defaults"));
@@ -246,7 +257,7 @@ public final class WorldgenIntegrationManager {
 
 				for (Entry<String, JsonElement> entry : providerSection.entrySet()) {
 					String id = entry.getKey();
-					if (!targetSection.has(id) && !known.contains(id)) {
+					if (mergeNewEntries && !targetSection.has(id) && !known.contains(id)) {
 						JsonObject value = entry.getValue().getAsJsonObject().deepCopy();
 						if (!"biome_rules".equals(sectionName)) {
 							value.addProperty("source_provider", provider.modId);
@@ -254,7 +265,7 @@ public final class WorldgenIntegrationManager {
 						targetSection.add(id, value);
 						changed = true;
 					}
-					known.add(id);
+					if (targetSection.has(id)) known.add(id);
 					if (targetSection.has(id) && targetSection.get(id).isJsonObject()) {
 						targetSection.getAsJsonObject(id).remove("orphaned_provider");
 					}
@@ -502,6 +513,11 @@ public final class WorldgenIntegrationManager {
 		if (integer(root, "provider_revision", -1) < 1) {
 			throw new JsonSyntaxException("provider_revision must be at least 1");
 		}
+		if (root.has("merge_new_entries_into_existing_worlds")
+				&& (!root.get("merge_new_entries_into_existing_worlds").isJsonPrimitive()
+						|| !root.getAsJsonPrimitive("merge_new_entries_into_existing_worlds").isBoolean())) {
+			throw new JsonSyntaxException("merge_new_entries_into_existing_worlds must be boolean");
+		}
 		if (schema == 1) {
 			for (String section : new String[] { "rocks", "geomes", "biome_rules",
 					"terrain_dimensions", "fluid_deposits", "biome_palettes",
@@ -633,12 +649,14 @@ public final class WorldgenIntegrationManager {
 			int maxY = integer(rule, "max_y", Integer.MIN_VALUE);
 			double frequency = decimal(rule, "frequency", -1.0D);
 			double discardChance = decimal(rule, "discard_chance_on_air_exposure", 0.0D);
+			double backgroundScale = decimal(rule, "background_generation_scale", 1.0D);
 			int[] quantities = validateQuantityRange(rule);
 			int minQuantity = quantities[0];
 			int maxQuantity = quantities[1];
 			if (minY < -2048 || maxY > 2048 || minY > maxY || frequency < 0.0D
 					|| frequency > 64.0D || !Double.isFinite(discardChance)
 					|| discardChance < 0.0D || discardChance > 1.0D
+					|| !Double.isFinite(backgroundScale) || backgroundScale < 0.0D || backgroundScale > 1.0D
 					|| minQuantity < 1 || minQuantity > maxQuantity || maxQuantity > 64) {
 				throw new JsonSyntaxException("invalid ore placement for " + idText + " in " + entry.getKey());
 			}

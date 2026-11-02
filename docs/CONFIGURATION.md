@@ -58,6 +58,16 @@ a valid, enabled import replaces the matching native default in its eligible
 dimensions. Saved Ore Sources placement choices still take precedence. This
 does not disable ordinary mod-provided ores or enable retrogen.
 
+An explicit deposit controller is a separate opt-in policy. Its dimension rule
+can set `background_generation_scale` from 0 (no ordinary background ore) to
+1 (unchanged). The controller's own frequency is not reduced. When a material
+is declared, other ordinary rules for that material are scaled but independent
+custom channels are not. The lowest enabled controller wins. Matching vanilla
+features use a deterministic per-chunk decision, including extra badlands gold.
+This policy can affect vanilla placement even with Manage Vanilla Ores off;
+merely importing a vanilla rule never enables it. With no controller, OFF
+still leaves native generation unchanged. Existing chunks are not rewritten.
+
 Built-in imported patterns share the ordinary placement channel unless a rule
 sets `placement_channel` explicitly. Older saved pattern-channel selections
 remain valid without rewriting the profile. Unknown and third-party patterns
@@ -213,6 +223,7 @@ Each enabled ore dimension uses:
 | `length` | 1-64 | Pattern path length where supported |
 | `fluid` | registry ID | Fluid used by `underfluids` |
 | `placement_channel` | registry ID | Independent placement budget shared by equivalent ores in consolidated modes |
+| `background_generation_scale` | 0-1, omitted by default | Explicit deposit control over matching background ore; the controller keeps its own frequency |
 
 At least one of `host_families`, `host_blocks`, or `host_tags` must be present.
 Hosts may be plain registry IDs or weighted objects such as

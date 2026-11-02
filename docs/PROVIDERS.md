@@ -122,6 +122,22 @@ Existing worlds merge newly introduced provider rule IDs but do not overwrite
 world edits. Disabled and unassigned rules remain tombstones; removed provider
 rules remain in the self-contained snapshot.
 
+From 4.2, a provider may set `merge_new_entries_into_existing_worlds: false`
+at the top level. New worlds still receive its full definition. Existing worlds
+keep their saved entries but do not gain newly introduced rule IDs or defaults
+from that provider. This is useful for deposits that should not appear partway
+through a playthrough. Omitting the flag keeps the historical merge behavior.
+
+An ore dimension may set `background_generation_scale` between 0 and 1.
+Its own placement budget stays unchanged. With an explicit `material`, the
+control reduces other rules for that material on `orespawn:standard`; custom
+channels stay independent. Without a declared material, the compatibility
+behavior follows the primary output block. The lowest enabled controller wins
+within each dimension. For vanilla ores, stone and deepslate variants share
+one family, and the control gates matching vanilla features per chunk. It does
+not control an unrelated mod's independent generator. See `CONFIGURATION.md`
+for the distinction from Manage Vanilla Ores.
+
 Biome providers package their biomes in the standard dynamic-registry path
 `data/<modid>/worldgen/biome/`, then declare where those IDs belong through
 `biome_palettes`. The overlay wraps the dimension's existing biome source, so

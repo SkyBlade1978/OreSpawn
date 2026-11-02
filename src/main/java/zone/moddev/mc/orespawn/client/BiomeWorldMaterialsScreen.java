@@ -261,12 +261,12 @@ final class BiomeWorldMaterialsScreen extends OreSpawnScreen {
 
 	private static int statusColor(Status status) {
 		switch (status) {
-		case MISSING: return 0xFF5555;
-		case USER_REPLACED: return 0x55FFFF;
-		case LAYERED: return 0xFFFF55;
-		case DISABLED: return 0xAAAAAA;
-		case PROVIDER_MANAGED: return 0x55FF55;
-		default: return 0xFFFFFF;
+		case MISSING: return 0xFFFF5555;
+		case USER_REPLACED: return 0xFF55FFFF;
+		case LAYERED: return 0xFFFFFF55;
+		case DISABLED: return 0xFFAAAAAA;
+		case PROVIDER_MANAGED: return 0xFF55FF55;
+		default: return 0xFFFFFFFF;
 		}
 	}
 

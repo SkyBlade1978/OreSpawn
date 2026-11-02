@@ -45,6 +45,21 @@ coverage with `OreDefinition.Builder.dimensionSelector(...)` and
 `OreDimensionSelector.ALL_EXCEPT_NETHER_AND_END`. Explicit dimensions
 override that selector and prevent duplicate placement.
 
+The 4.2 builder also accepts `backgroundGenerationScale(0.15)` on an ore
+dimension. The rule remains at its configured frequency; other ordinary rules
+for its material are reduced to 15%. Give a specialist deposit an explicit
+material and its own placement channel so it does not reduce independent custom
+engines. The lowest enabled controller wins. Vanilla features for the rule's
+primary ore are gated deterministically per chunk, without consuming their
+random state. This is an explicit provider policy, separate from importing
+vanilla settings or switching Manage Vanilla Ores on.
+
+Use `WorldgenProvider.Builder.mergeNewEntriesIntoExistingWorlds(false)` when
+new deposits should be offered only to new worlds. Existing saved entries,
+edits and removal tombstones remain intact. The default is `true`, matching
+older providers. Mods calling either new method must require OreSpawn 4.2 or
+later; the basic API example above retains its older compatibility floor.
+
 The builder emits provider schema 5. Legacy provider schemas 1-4 remain
 readable. Schema 4 is required for biome palettes and dimension materials;
 schema 5 adds explicit material and placement-channel IDs. API major remains 1.
@@ -168,7 +183,8 @@ dimensions. It samples configured strata, not blocks already in the world.
 Where no configured rock is eligible, generation leaves native terrain alone,
 `familyAt` is empty, and `rockAt` retains its Stone fallback. That fallback is
 not a prediction of the other generator's rock; inspect existing terrain if
-you need its actual block.
+you need its actual block. Sampling does not load or generate missing chunks;
+the native noise-biome fallback supplies the classification when necessary.
 Callbacks inside OreSpawn generation loops are intentionally unsupported.
 
 Custom pattern mods create a NeoForge `DeferredRegister<OrePatternType>` using

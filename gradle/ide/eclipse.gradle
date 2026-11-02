@@ -100,6 +100,7 @@ tasks.register('verifyEclipseProductionClasspath') {
                 'src/test', 'bin/test', 'build/classes/java/test',
                 'biomeIntegrationTest', 'clientIntegrationTest', 'benchmarkIntegrationTest',
                 'oreSourceMineralsTest', 'oreSourceAdvantageTest', 'worldHashTest',
+                'nativeOreIntegrationTest', 'depositIntegrationTest', 'nativeoreprobe', 'depositprobe',
                 'surfaceprobe', 'clientprobe', 'benchmarkprobe', 'worldhashprobe',
                 'oresource-minerals', 'oresource-advantage', 'junit-', 'opentest4j-',
                 'Mineralogy-1.18.2-5.4.0.jar', 'net.minecraftforge', 'META-INF/mods.toml',

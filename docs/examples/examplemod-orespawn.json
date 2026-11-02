@@ -2,6 +2,7 @@
   "schema_version": 5,
   "provider_modid": "examplemod",
   "provider_revision": 1,
+  "merge_new_entries_into_existing_worlds": true,
   "rocks": {
     "examplemod:rock/slate": {
       "block": "examplemod:slate",

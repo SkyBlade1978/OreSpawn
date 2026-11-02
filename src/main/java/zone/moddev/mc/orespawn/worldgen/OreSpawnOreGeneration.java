@@ -65,6 +65,11 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 	private static volatile Map<ResourceKey<Level>, Set<Block>> vanillaTakeoverOutputs = Collections.emptyMap();
 	private static volatile BakedOre[] selectorOres = NO_ORES;
 	private static volatile Set<Block> selectorVanillaTakeoverOutputs = Collections.emptySet();
+	private static volatile Map<ResourceKey<Level>, Map<Block, Double>> backgroundGenerationScales = Collections.emptyMap();
+	private static volatile Map<ResourceKey<Level>, Map<ResourceLocation, Double>> materialBackgroundGenerationScales = Collections.emptyMap();
+	private static volatile Map<Block, Double> selectorBackgroundGenerationScales = Collections.emptyMap();
+	private static volatile Map<ResourceLocation, Double> selectorMaterialBackgroundGenerationScales = Collections.emptyMap();
+	private static volatile Map<Block, ResourceLocation> backgroundOutputIds = Collections.emptyMap();
 	private static volatile BakedGeomeConfig geomeConfig;
 	private static volatile GeomeGeology classifier;
 	private static volatile long classifierSeed = Long.MIN_VALUE;
@@ -87,6 +92,11 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 		vanillaTakeoverOutputs = baked.vanillaOutputs;
 		selectorOres = baked.selectorOres;
 		selectorVanillaTakeoverOutputs = baked.selectorVanillaOutputs;
+		backgroundGenerationScales = baked.backgroundGenerationScales;
+		materialBackgroundGenerationScales = baked.materialBackgroundGenerationScales;
+		selectorBackgroundGenerationScales = baked.selectorBackgroundGenerationScales;
+		selectorMaterialBackgroundGenerationScales = baked.selectorMaterialBackgroundGenerationScales;
+		backgroundOutputIds = baked.backgroundOutputIds;
 		synchronized (CLASSIFIER_LOCK) {
 			classifier = null;
 			classifierSeed = Long.MIN_VALUE;
@@ -98,6 +108,27 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 		Set<Block> outputs = vanillaTakeoverOutputs.get(dimension);
 		if (outputs == null && selectorAllows(dimension)) outputs = selectorVanillaTakeoverOutputs;
 		return !WorldgenBenchmark.isVanillaBaseline() && outputs != null && outputs.contains(output);
+	}
+
+	static boolean allowsVanillaOre(ResourceKey<Level> dimension, Block output, long worldSeed,
+			int chunkX, int chunkZ) {
+		if (WorldgenBenchmark.isVanillaBaseline()) return true;
+		if (takesOverVanillaOre(dimension, output)) return false;
+		if (backgroundOutputIds.isEmpty()) return true;
+		Block family = VanillaOreFeatureGate.vanillaOreFamily(output);
+		Block resource = family == null ? output : family;
+		return passesBackgroundScale(dimension.location(), backgroundOutputIds.get(resource),
+				worldSeed, chunkX, chunkZ, backgroundScale(dimension, resource));
+	}
+
+	static boolean passesBackgroundScale(ResourceLocation dimension, ResourceLocation output,
+			long worldSeed, int chunkX, int chunkZ, double scale) {
+		if (scale >= 1.0D) return true;
+		if (scale <= 0.0D) return false;
+		long identity = ((long) dimension.hashCode() << 32)
+				^ (output == null ? 0L : output.hashCode() & 0xFFFFFFFFL);
+		long value = mix(worldSeed, ChunkPos.asLong(chunkX, chunkZ), identity);
+		return (value >>> 11) * 0x1.0p-53 < scale;
 	}
 
 	@Override
@@ -158,6 +189,12 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 				continue;
 			}
 			double frequency = ore.frequency;
+			if (!backgroundOutputIds.isEmpty()) {
+				ResourceLocation material = ore.materialDeclared ? ore.material : null;
+				double scale = channelBackgroundScale(material, ore.channel,
+						materialBackgroundScale(dimension, material), backgroundScale(dimension, ore.output.getBlock()));
+				frequency = scaledManagedFrequency(frequency, ore.backgroundController, scale);
+			}
 			if (geome >= 0) {
 				frequency *= ore.geomeWeights[geome];
 			}
@@ -223,6 +260,22 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 		return exact != null ? exact : selectorAllows(dimension) ? selectorOres : NO_ORES;
 	}
 
+	private static double backgroundScale(ResourceKey<Level> dimension, Block output) {
+		Map<Block, Double> scales = backgroundGenerationScales.get(dimension);
+		if (scales == null && selectorAllows(dimension)) scales = selectorBackgroundGenerationScales;
+		Block family = VanillaOreFeatureGate.vanillaOreFamily(output);
+		Double scale = scales == null ? null : scales.get(family == null ? output : family);
+		return scale == null ? 1.0D : scale;
+	}
+
+	private static double materialBackgroundScale(ResourceKey<Level> dimension, ResourceLocation material) {
+		if (material == null) return 1.0D;
+		Map<ResourceLocation, Double> scales = materialBackgroundGenerationScales.get(dimension);
+		if (scales == null && selectorAllows(dimension)) scales = selectorMaterialBackgroundGenerationScales;
+		Double scale = scales == null ? null : scales.get(material);
+		return scale == null ? 1.0D : scale;
+	}
+
 	private static boolean insideChunk(ChunkAccess chunk, int x, int y, int z) {
 		ChunkPos pos = chunk.getPos();
 		return x >= pos.getMinBlockX() && x <= pos.getMaxBlockX()
@@ -272,6 +325,7 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 			// Keep imported settings, but let vanilla place its own ores while management is off.
 			if (!oreEnabled || (!manageVanillaOres && (nativeGeneration || importedVanilla))) continue;
 			ResourceLocation material = OreSourcePolicies.material(profile, oreJson, output);
+			boolean materialDeclared = resource(string(oreJson, "material", "")) != null;
 			BakedOreRule rule = new BakedOreRule(ruleId, output,
 					manageVanillaOres && (importedVanilla || suppressVanilla), nativeGeneration, importedVanilla);
 
@@ -296,7 +350,7 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 				if (dimensionConfig == null) dimensionConfig = config;
 				BakedOre baked = bakeOre(ruleId, material, dimensionId,
 						output.defaultBlockState(), deepOutput, deepOutputMaxY, outputs,
-						dimension, dimensionConfig, resolvedTags, retrogen);
+						dimension, dimensionConfig, resolvedTags, retrogen, materialDeclared);
 				if (baked != null) {
 					rule.explicit.put(dimensionKey, baked);
 				} else {
@@ -317,7 +371,7 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 				if (!bool(selector, "enabled", true)) continue;
 				rule.selector = bakeOre(ruleId, material, selectorId,
 						output.defaultBlockState(), deepOutput, deepOutputMaxY, outputs,
-						selector, config, resolvedTags, retrogen);
+						selector, config, resolvedTags, retrogen, materialDeclared);
 				if (rule.selector == null) {
 					reportBakeProblem("Ignoring invalid selector rule for OreSpawn-managed ore '{}'",
 							oreEntry.getKey());
@@ -328,28 +382,38 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 
 		Map<ResourceKey<Level>, BakedOre[]> result = new HashMap<>();
 		Map<ResourceKey<Level>, Set<Block>> vanillaOutputs = new HashMap<>();
+		Map<ResourceKey<Level>, Map<Block, Double>> generationScales = new HashMap<>();
+		Map<ResourceKey<Level>, Map<ResourceLocation, Double>> materialScales = new HashMap<>();
 		for (ResourceKey<Level> dimension : explicitDimensions) {
 			List<BakedOre> combined = new ArrayList<>();
 			Set<Block> suppressed = Collections.newSetFromMap(new IdentityHashMap<Block, Boolean>());
+			Map<Block, Double> scales = new IdentityHashMap<>();
+			Map<ResourceLocation, Double> semanticScales = new HashMap<>();
 			for (BakedOreRule rule : rules) {
 				BakedOre selected = selectRule(rule.explicit, rule.explicitDimensions,
 						rule.selector, dimension);
 				if (selected != null) {
 					combined.add(selected);
 					if (rule.suppressVanilla) rule.addSuppressedOutputs(suppressed);
+					collectBackgroundScale(selected, scales, semanticScales);
 				}
 			}
 			combined = arbitrate(profile, combined, outputBundles);
 			combined = preferImportedVanilla(rules, combined);
 			result.put(dimension, combined.toArray(new BakedOre[combined.size()]));
 			vanillaOutputs.put(dimension, Collections.unmodifiableSet(suppressed));
+			generationScales.put(dimension, Collections.unmodifiableMap(scales));
+			materialScales.put(dimension, Collections.unmodifiableMap(semanticScales));
 		}
 		List<BakedOre> selectorList = new ArrayList<>();
 		Set<Block> selectorOutputs = Collections.newSetFromMap(new IdentityHashMap<Block, Boolean>());
+		Map<Block, Double> selectorScales = new IdentityHashMap<>();
+		Map<ResourceLocation, Double> selectorMaterialScales = new HashMap<>();
 		for (BakedOreRule rule : rules) {
 			if (rule.selector == null) continue;
 			selectorList.add(rule.selector);
 			if (rule.suppressVanilla) rule.addSuppressedOutputs(selectorOutputs);
+			collectBackgroundScale(rule.selector, selectorScales, selectorMaterialScales);
 		}
 		selectorList = arbitrate(profile, selectorList, outputBundles);
 		selectorList = preferImportedVanilla(rules, selectorList);
@@ -362,7 +426,18 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 		}
 		return new BakedOres(Collections.unmodifiableMap(result),
 				Collections.unmodifiableMap(immutableVanillaOutputs), selectorResult,
-				Collections.unmodifiableSet(selectorOutputs));
+				Collections.unmodifiableSet(selectorOutputs), Collections.unmodifiableMap(generationScales),
+				Collections.unmodifiableMap(materialScales), Collections.unmodifiableMap(selectorScales),
+				Collections.unmodifiableMap(selectorMaterialScales));
+	}
+
+	private static void collectBackgroundScale(BakedOre ore, Map<Block, Double> scales,
+			Map<ResourceLocation, Double> materialScales) {
+		if (!ore.backgroundController) return;
+		Block output = ore.output.getBlock();
+		Block family = VanillaOreFeatureGate.vanillaOreFamily(output);
+		mergeBackgroundScale(scales, family == null ? output : family, ore.backgroundGenerationScale);
+		if (ore.materialDeclared) mergeBackgroundScale(materialScales, ore.material, ore.backgroundGenerationScale);
 	}
 
 	static boolean isImportedVanillaOre(ResourceLocation ruleId, Block output, JsonObject ore) {
@@ -524,11 +599,25 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 		return root.has(key) && root.get(key).isJsonObject() ? root.getAsJsonObject(key) : new JsonObject();
 	}
 
+	static double scaledManagedFrequency(double frequency, boolean controller, double scale) {
+		return controller ? frequency : frequency * scale;
+	}
+
+	static double channelBackgroundScale(ResourceLocation material, ResourceLocation channel,
+			double materialScale, double legacyBlockScale) {
+		if (material == null) return legacyBlockScale;
+		return OreSourcePolicies.STANDARD.equals(channel) ? materialScale : 1.0D;
+	}
+
+	static <T> void mergeBackgroundScale(Map<T, Double> scales, T resource, double scale) {
+		scales.merge(resource, scale, Math::min);
+	}
+
 	private static BakedOre bakeOre(ResourceLocation ruleId, ResourceLocation material,
 			ResourceLocation domain, BlockState output, BlockState deepOutput, int deepOutputMaxY,
 			BakedOutput[] outputs,
 			JsonObject json, BakedGeomeConfig config, Map<TagKey<Block>, Set<Block>> resolvedTags,
-			boolean retrogen) {
+			boolean retrogen, boolean materialDeclared) {
 		int minY = integer(json, "min_y", -64);
 		int maxY = integer(json, "max_y", 320);
 		double frequency = decimal(json, "frequency", 0.0D);
@@ -592,7 +681,9 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 				minY, maxY, Math.min(64.0D, frequency), minQuantity, maxQuantity,
 				pattern, heightDistribution, discardChanceOnAirExposure,
 				spread, verticalSpread, nodeSize,
-				hostBlocks, familyMask, geomeWeights, includedBiomes, excludedBiomes, retrogen);
+				hostBlocks, familyMask, geomeWeights, includedBiomes, excludedBiomes, retrogen)
+				.withBackgroundControl(materialDeclared, json.has("background_generation_scale"),
+						Math.max(0.0D, Math.min(1.0D, decimal(json, "background_generation_scale", 1.0D))));
 	}
 
 	private static BakedOutput[] bakeOutputs(JsonObject ore, BlockState fallback) {
@@ -795,6 +886,9 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 		final boolean retrogen;
 		final BakedSource[] arbitrationSources;
 		final long sourceSalt;
+		final boolean materialDeclared;
+		final boolean backgroundController;
+		final double backgroundGenerationScale;
 
 		BakedOre(ResourceLocation ruleId, ResourceLocation material,
 				ResourceLocation policyDomain, ResourceLocation channel,
@@ -810,7 +904,7 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 					minY, maxY, frequency, minQuantity, maxQuantity, pattern, heightDistribution,
 					discardChanceOnAirExposure, spread, verticalSpread, nodeSize, hostBlocks,
 					familyMask, geomeWeights, includedBiomes, excludedBiomes, retrogen,
-					new BakedSource[0]);
+					new BakedSource[0], false, false, 1.0D);
 		}
 
 		private BakedOre(ResourceLocation ruleId, ResourceLocation material,
@@ -823,7 +917,8 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 				Map<Block, Double> hostBlocks, int familyMask, double[] geomeWeights,
 				Set<ResourceKey<Biome>> includedBiomes,
 				Set<ResourceKey<Biome>> excludedBiomes, boolean retrogen,
-				BakedSource[] arbitrationSources) {
+				BakedSource[] arbitrationSources, boolean materialDeclared,
+				boolean backgroundController, double backgroundGenerationScale) {
 			this.ruleId = ruleId;
 			this.material = material;
 			this.policyDomain = policyDomain;
@@ -850,6 +945,9 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 			this.excludedBiomes = excludedBiomes;
 			this.retrogen = retrogen;
 			this.arbitrationSources = arbitrationSources;
+			this.materialDeclared = materialDeclared;
+			this.backgroundController = backgroundController;
+			this.backgroundGenerationScale = backgroundGenerationScale;
 			this.sourceSalt = material == null ? 0L
 					: ((long) material.hashCode() << 32) ^ channel.hashCode();
 		}
@@ -860,7 +958,17 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 					minQuantity, maxQuantity, pattern, heightDistribution, discardChanceOnAirExposure,
 				spread, verticalSpread, nodeSize, hostBlocks, familyMask, geomeWeights,
 				includedBiomes, excludedBiomes, retrogen,
-					sources.toArray(new BakedSource[sources.size()]));
+						sources.toArray(new BakedSource[sources.size()]), materialDeclared,
+						backgroundController, backgroundGenerationScale);
+		}
+
+		BakedOre withBackgroundControl(boolean declared, boolean controller, double scale) {
+			if (!declared && !controller) return this;
+			return new BakedOre(ruleId, material, policyDomain, channel,
+					output, deepOutput, deepOutputMaxY, outputs, minY, maxY, frequency,
+					minQuantity, maxQuantity, pattern, heightDistribution, discardChanceOnAirExposure,
+					spread, verticalSpread, nodeSize, hostBlocks, familyMask, geomeWeights,
+					includedBiomes, excludedBiomes, retrogen, arbitrationSources, declared, controller, scale);
 		}
 
 		BakedOutputBundle outputSource(long worldSeed, long chunkIdentity, int attempt) {
@@ -989,20 +1097,42 @@ public final class OreSpawnOreGeneration extends Feature<NoneFeatureConfiguratio
 
 	private static final class BakedOres {
 		static final BakedOres EMPTY = new BakedOres(EMPTY_DIMENSIONS, Collections.emptyMap(),
-				NO_ORES, Collections.emptySet());
+				NO_ORES, Collections.emptySet(), Collections.emptyMap(), Collections.emptyMap(),
+				Collections.emptyMap(), Collections.emptyMap());
 
 		final Map<ResourceKey<Level>, BakedOre[]> byDimension;
 		final Map<ResourceKey<Level>, Set<Block>> vanillaOutputs;
 		final BakedOre[] selectorOres;
 		final Set<Block> selectorVanillaOutputs;
+		final Map<ResourceKey<Level>, Map<Block, Double>> backgroundGenerationScales;
+		final Map<ResourceKey<Level>, Map<ResourceLocation, Double>> materialBackgroundGenerationScales;
+		final Map<Block, Double> selectorBackgroundGenerationScales;
+		final Map<ResourceLocation, Double> selectorMaterialBackgroundGenerationScales;
+		final Map<Block, ResourceLocation> backgroundOutputIds;
 
 		BakedOres(Map<ResourceKey<Level>, BakedOre[]> byDimension,
 				Map<ResourceKey<Level>, Set<Block>> vanillaOutputs, BakedOre[] selectorOres,
-				Set<Block> selectorVanillaOutputs) {
+				Set<Block> selectorVanillaOutputs,
+				Map<ResourceKey<Level>, Map<Block, Double>> backgroundGenerationScales,
+				Map<ResourceKey<Level>, Map<ResourceLocation, Double>> materialBackgroundGenerationScales,
+				Map<Block, Double> selectorBackgroundGenerationScales,
+				Map<ResourceLocation, Double> selectorMaterialBackgroundGenerationScales) {
 			this.byDimension = byDimension;
 			this.vanillaOutputs = vanillaOutputs;
 			this.selectorOres = selectorOres;
 			this.selectorVanillaOutputs = selectorVanillaOutputs;
+			this.backgroundGenerationScales = backgroundGenerationScales;
+			this.materialBackgroundGenerationScales = materialBackgroundGenerationScales;
+			this.selectorBackgroundGenerationScales = selectorBackgroundGenerationScales;
+			this.selectorMaterialBackgroundGenerationScales = selectorMaterialBackgroundGenerationScales;
+			Map<Block, ResourceLocation> outputIds = new IdentityHashMap<>();
+			for (Map<Block, Double> scales : backgroundGenerationScales.values()) {
+				for (Block block : scales.keySet()) outputIds.put(block, BuiltInRegistries.BLOCK.getKey(block));
+			}
+			for (Block block : selectorBackgroundGenerationScales.keySet()) {
+				outputIds.put(block, BuiltInRegistries.BLOCK.getKey(block));
+			}
+			backgroundOutputIds = Collections.unmodifiableMap(outputIds);
 		}
 	}
 

@@ -21,7 +21,6 @@ import com.google.gson.JsonSyntaxException;
 import zone.moddev.mc.orespawn.OreSpawnConfig;
 import zone.moddev.mc.orespawn.OreSpawnConfig.GeologyMode;
 import zone.moddev.mc.orespawn.OreSpawn;
-import zone.moddev.mc.orespawn.api.OreSpawnOreIntegration;
 import zone.moddev.mc.orespawn.integration.WorldgenIntegrationManager;
 
 import net.minecraft.server.MinecraftServer;
@@ -113,7 +112,7 @@ public final class WorldGeologyProfileManager {
 				.resolve("serverconfig").resolve(PROFILE_FILE_NAME);
 		WorldGeologyProfile profile = readProfile(profilePath, globalProfile());
 		JsonObject merged = profile.rootCopy();
-		boolean changed = OreSpawnOreIntegration.mergeProviderOres(merged);
+		boolean changed = WorldgenIntegrationManager.mergeProviderDefinitionsIntoExistingWorld(merged);
 		changed |= OreSourcePolicies.initialize(merged, true);
 		if (changed) {
 			profile = profile.withRoot(merged);
@@ -142,7 +141,7 @@ public final class WorldGeologyProfileManager {
 			profile = readProfile(profilePath, fallback);
 			JsonObject merged = profile.rootCopy();
 			String beforeMerge = merged.toString();
-			OreSpawnOreIntegration.mergeProviderOres(merged);
+			WorldgenIntegrationManager.mergeProviderDefinitionsIntoExistingWorld(merged);
 			OreSourcePolicies.initialize(merged, true);
 			if (!beforeMerge.equals(merged.toString())) {
 				profile = profile.withRoot(merged);
